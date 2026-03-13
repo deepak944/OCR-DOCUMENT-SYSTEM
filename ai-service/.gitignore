@@ -1,0 +1,9 @@
+uploads/
+temp_images/
+temp_imagess/
+word_exports/
+__pycache__/
+venv/
+.venv/
+*.pyc
+.env

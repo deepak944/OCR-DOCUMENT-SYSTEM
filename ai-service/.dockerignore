@@ -1,0 +1,11 @@
+venv
+.venv
+__pycache__
+*.pyc
+uploads
+temp_images
+temp_imagess
+word_exports
+.env
+.git
+Dockerfile*

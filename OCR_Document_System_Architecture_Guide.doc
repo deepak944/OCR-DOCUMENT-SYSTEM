@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>OCR Document System - Architecture Guide</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 28px;
+        color: #111111;
+        line-height: 1.45;
+      }
+      h1, h2, h3 {
+        color: #0f172a;
+      }
+      h1 {
+        margin-bottom: 6px;
+      }
+      h2 {
+        margin-top: 24px;
+        margin-bottom: 8px;
+      }
+      h3 {
+        margin-top: 16px;
+        margin-bottom: 6px;
+      }
+      code, pre {
+        font-family: Consolas, "Courier New", monospace;
+      }
+      pre {
+        background: #f5f7fb;
+        border: 1px solid #dbe2ee;
+        border-radius: 6px;
+        padding: 10px;
+        white-space: pre-wrap;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        margin-top: 8px;
+      }
+      th, td {
+        border: 1px solid #d8d8d8;
+        padding: 8px;
+        text-align: left;
+        vertical-align: top;
+      }
+      th {
+        background: #f1f5f9;
+      }
+      ul, ol {
+        margin-top: 6px;
+      }
+      .small {
+        color: #475569;
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>OCR Document System</h1>
+    <p><strong>Architecture and Learning Guide (Fresher Friendly)</strong></p>
+    <p class="small">Project root: C:\Users\DEEPAK\Desktop\ocr-document-system</p>
+
+    <h2>1. Project Purpose</h2>
+    <p>
+      This project lets a user upload a PDF, extract text and tables from it, view extracted data in the UI,
+      and download a Word version of the uploaded PDF.
+    </p>
+
+    <h2>2. High-Level Architecture</h2>
+    <pre>Browser (React Frontend)
+        |
+        v
+Node.js Backend (API + file upload handling)
+        |
+        v
+Python AI Service (OCR + table extraction + PDF-to-Word conversion)</pre>
+
+    <h3>Request flow for OCR extraction</h3>
+    <ol>
+      <li>User uploads PDF from Frontend.</li>
+      <li>Frontend sends file to Backend: <code>POST /upload</code>.</li>
+      <li>Backend forwards file to AI service: <code>POST /process-document</code>.</li>
+      <li>AI service extracts text and tables, returns JSON.</li>
+      <li>Backend returns JSON to Frontend.</li>
+      <li>Frontend displays extracted output.</li>
+    </ol>
+
+    <h3>Request flow for Word download</h3>
+    <ol>
+      <li>User clicks Download Word on Frontend.</li>
+      <li>Frontend sends the same PDF file to Backend: <code>POST /download-word</code>.</li>
+      <li>Backend forwards file to AI service: <code>POST /convert-pdf-to-word</code>.</li>
+      <li>AI service creates a Word-compatible file and streams it back.</li>
+      <li>Backend returns file response to Frontend.</li>
+      <li>Frontend triggers browser download.</li>
+    </ol>
+
+    <h2>3. Folder Structure (Important Parts)</h2>
+    <pre>ocr-document-system/
+  frontend/
+    src/
+      components/      # UI widgets: UploadBox, ResultBox, Navbar
+      pages/           # Main page screens
+      services/api.js  # Axios client for backend APIs
+      styles/          # CSS
+  backend/
+    server.js          # Express app bootstrap
+    src/
+      routes/          # API route mapping
+      controllers/     # Request-response logic
+      services/        # Outbound calls to ai-service
+      middleware/      # Multer upload handling
+  ai-service/
+    app/
+      main.py          # FastAPI app + endpoints
+      services/        # OCR orchestration + word export
+      ocr/             # OCR engines, PDF processing, table parsing
+      config.py        # Folder and OCR config
+  docker-compose.yml
+  DOCKER.md</pre>
+
+    <h2>4. Technologies Used</h2>
+    <table>
+      <tr>
+        <th>Layer</th>
+        <th>Technology</th>
+        <th>Why Used</th>
+      </tr>
+      <tr>
+        <td>Frontend</td>
+        <td>React + Vite + Axios + CSS</td>
+        <td>Fast UI development, API calls, responsive page rendering.</td>
+      </tr>
+      <tr>
+        <td>Backend</td>
+        <td>Node.js + Express + Multer + Axios + dotenv</td>
+        <td>HTTP API, file upload parsing, forwarding files to AI service, env-based config.</td>
+      </tr>
+      <tr>
+        <td>AI Service</td>
+        <td>FastAPI + PaddleOCR + PyMuPDF + Camelot</td>
+        <td>OCR extraction, native PDF text extraction, table extraction, PDF page rendering.</td>
+      </tr>
+      <tr>
+        <td>Containerization</td>
+        <td>Docker + Docker Compose</td>
+        <td>Single command startup for all services with reproducible environments.</td>
+      </tr>
+    </table>
+
+    <h2>5. Core APIs and Responsibilities</h2>
+    <h3>Backend APIs</h3>
+    <ul>
+      <li><code>POST /upload</code>: Accepts PDF, sends to AI extraction, returns extracted JSON.</li>
+      <li><code>POST /download-word</code>: Accepts PDF, sends to AI conversion, returns downloadable .doc.</li>
+      <li><code>GET /health</code>: Health check endpoint.</li>
+    </ul>
+
+    <h3>AI Service APIs</h3>
+    <ul>
+      <li><code>GET /</code>: Health check.</li>
+      <li><code>POST /process-document</code>: OCR + tables pipeline.</li>
+      <li><code>POST /convert-pdf-to-word</code>: Converts uploaded PDF pages to Word-compatible output.</li>
+    </ul>
+
+    <h2>6. How Frontend, Backend, and AI Service Connect</h2>
+    <h3>Frontend to Backend</h3>
+    <ul>
+      <li>Configured in <code>frontend/src/services/api.js</code>.</li>
+      <li>Uses <code>VITE_API_URL</code> when set, fallback is <code>http://localhost:5000</code>.</li>
+    </ul>
+
+    <h3>Backend to AI Service</h3>
+    <ul>
+      <li>Configured in <code>backend/src/config/config.js</code>.</li>
+      <li>Uses <code>AI_SERVICE_URL</code>, fallback <code>http://localhost:8000</code>.</li>
+      <li>In Docker Compose, backend uses internal hostname <code>http://ai-service:8000</code>.</li>
+    </ul>
+
+    <h2>7. Important Design Decisions in This Project</h2>
+    <ul>
+      <li>PDF-only upload validation in frontend and backend for consistent pipeline behavior.</li>
+      <li>Temporary files are auto-created and cleaned after request completion.</li>
+      <li>Native PDF text extraction runs first for speed; OCR used as fallback for pages with no text.</li>
+      <li>Large timeout values are set for heavy OCR operations.</li>
+      <li>Error mapping is implemented so frontend gets meaningful messages (400/502/500).</li>
+    </ul>
+
+    <h2>8. Commands (Separate List)</h2>
+    <h3>A. Local development commands</h3>
+    <pre># Terminal 1 - AI service
+cd ai-service
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+# Terminal 2 - Backend
+cd backend
+npm run start
+
+# Terminal 3 - Frontend
+cd frontend
+npm run dev</pre>
+
+    <h3>B. Docker commands</h3>
+    <pre># Build and run all services
+docker compose up --build
+
+# Run in detached mode
+docker compose up -d
+
+# View logs
+docker compose logs -f
+
+# Stop services
+docker compose down
+
+# Rebuild after Dockerfile/dependency changes
+docker compose up --build -d</pre>
+
+    <h3>C. Health check commands</h3>
+    <pre>curl http://localhost:5000/health
+curl http://localhost:8000/</pre>
+
+    <h2>9. End-to-End Processing Internals</h2>
+    <h3>OCR extraction internals</h3>
+    <ol>
+      <li>Save uploaded PDF to temp path.</li>
+      <li>Extract direct text blocks from PDF pages.</li>
+      <li>For text-empty pages, render page image and run OCR.</li>
+      <li>Run table extraction via Camelot.</li>
+      <li>Return output JSON with <code>pages</code> and <code>tables</code>.</li>
+      <li>Cleanup temporary files/folders.</li>
+    </ol>
+
+    <h3>Word conversion internals</h3>
+    <ol>
+      <li>Save uploaded PDF temporary file.</li>
+      <li>Render each page as an image.</li>
+      <li>Embed page images into HTML.</li>
+      <li>Write HTML as <code>.doc</code> and return as file response.</li>
+      <li>Delete generated temporary files via background cleanup.</li>
+    </ol>
+
+    <h2>10. Non-Functional Topics (Important for Freshers)</h2>
+    <h3>Performance</h3>
+    <ul>
+      <li>OCR is CPU-heavy and can be slow for big PDFs.</li>
+      <li>Model loading on first run is slow; Docker volume cache helps.</li>
+      <li>Prefer native text extraction where possible to reduce OCR work.</li>
+    </ul>
+
+    <h3>Reliability</h3>
+    <ul>
+      <li>Always validate file presence and extension before processing.</li>
+      <li>Use structured error responses from every service.</li>
+      <li>Add request IDs/log correlation if scaling to production.</li>
+    </ul>
+
+    <h3>Security basics</h3>
+    <ul>
+      <li>Limit upload size.</li>
+      <li>Sanitize file handling and never trust client filenames directly.</li>
+      <li>Use CORS policy and auth before public deployment.</li>
+    </ul>
+
+    <h2>11. What a Fresher Should Learn Next (Roadmap)</h2>
+    <ol>
+      <li>HTTP fundamentals: request/response, status codes, multipart form data.</li>
+      <li>React state flow and file upload handling.</li>
+      <li>Express middleware, routing, and async error handling.</li>
+      <li>FastAPI endpoint design and Python service layering.</li>
+      <li>Docker basics: image, container, compose network, volume.</li>
+      <li>Observability: logs, metrics, and tracing across services.</li>
+    </ol>
+
+    <h2>12. Quick Troubleshooting Cheat Sheet</h2>
+    <ul>
+      <li><strong>Frontend stuck at Processing</strong>: check backend and ai-service logs.</li>
+      <li><strong>502 AI service unavailable</strong>: ai-service not running or wrong AI_SERVICE_URL.</li>
+      <li><strong>Docker TLS handshake timeout</strong>: temporary network issue while pulling images.</li>
+      <li><strong>Empty extraction</strong>: scanned image quality low or OCR model runtime issue.</li>
+    </ul>
+
+    <h2>13. Final Summary</h2>
+    <p>
+      This is a clean 3-tier architecture: React UI for user interaction, Express backend for API and upload orchestration,
+      and FastAPI AI engine for extraction/conversion workloads. The system is beginner-friendly, containerized, and structured
+      in a way that can be scaled by adding queue workers, persistent storage, and authentication.
+    </p>
+  </body>
+</html>

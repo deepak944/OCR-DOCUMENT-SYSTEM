@@ -1,0 +1,187 @@
+:root{
+  --bg-1:#f3f7ff;
+  --bg-2:#edf6f3;
+  --ink:#1f2937;
+  --muted:#5f6b7a;
+  --card:#ffffff;
+  --line:#e2e8f0;
+  --brand:#0f766e;
+  --brand-hover:#0d5e58;
+  --danger:#b42318;
+}
+
+*{
+  box-sizing:border-box;
+}
+
+body{
+  margin:0;
+  font-family:Poppins, "Segoe UI", Tahoma, sans-serif;
+  color:var(--ink);
+  background:
+    radial-gradient(1000px 500px at -10% -10%, #d9eefc 0%, transparent 60%),
+    radial-gradient(1000px 500px at 110% 0%, #dff7ed 0%, transparent 60%),
+    linear-gradient(160deg, var(--bg-1), var(--bg-2));
+  min-height:100vh;
+}
+
+.navbar{
+  padding:22px 24px 10px;
+  text-align:center;
+}
+
+.navbar h2{
+  margin:0;
+  font-size:20px;
+  font-weight:700;
+  letter-spacing:.3px;
+  color:#0f172a;
+}
+
+.pageShell{
+  min-height:calc(100vh - 70px);
+  display:flex;
+  justify-content:center;
+  align-items:flex-start;
+  padding:24px 16px 40px;
+}
+
+.card{
+  width:min(780px, 100%);
+  background:var(--card);
+  border:1px solid rgba(15, 23, 42, 0.08);
+  border-radius:18px;
+  padding:28px;
+  box-shadow:0 20px 45px rgba(15, 23, 42, 0.12);
+}
+
+.cardTitle{
+  margin:0;
+  font-size:30px;
+  line-height:1.2;
+}
+
+.cardSubtitle{
+  margin:10px 0 0;
+  color:var(--muted);
+  font-size:14px;
+}
+
+.uploadBox{
+  margin-top:22px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:16px;
+  background:#fbfdff;
+}
+
+.fileLabel{
+  display:block;
+  font-size:13px;
+  color:var(--muted);
+  margin-bottom:8px;
+}
+
+.fileInput{
+  width:100%;
+  font-size:14px;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:10px;
+  padding:10px;
+}
+
+.uploadActionRow{
+  margin-top:14px;
+  display:flex;
+  align-items:center;
+  gap:14px;
+  flex-wrap:wrap;
+}
+
+.primaryBtn{
+  border:none;
+  background:var(--brand);
+  color:#fff;
+  font-size:14px;
+  font-weight:600;
+  padding:10px 18px;
+  border-radius:10px;
+  cursor:pointer;
+  transition:background .2s ease;
+}
+
+.primaryBtn:hover:enabled{
+  background:var(--brand-hover);
+}
+
+.primaryBtn:disabled{
+  opacity:.6;
+  cursor:not-allowed;
+}
+
+.fileName{
+  margin:0;
+  color:#334155;
+  font-size:13px;
+}
+
+.errorText{
+  margin:12px 0 0;
+  color:var(--danger);
+  font-size:13px;
+}
+
+.result{
+  margin-top:18px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:#fff;
+  padding:16px;
+}
+
+.resultHeader{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  flex-wrap:wrap;
+}
+
+.resultHeader h3{
+  margin:0;
+}
+
+.resultHeader button{
+  border:1px solid var(--line);
+  background:#f8fafc;
+  color:#0f172a;
+  font-weight:600;
+  padding:9px 14px;
+  border-radius:10px;
+  cursor:pointer;
+}
+
+.resultPreview{
+  margin:14px 0 0;
+  max-height:340px;
+  overflow:auto;
+  border-radius:10px;
+  border:1px solid #e5e7eb;
+  padding:12px;
+  background:#0b1220;
+  color:#e2e8f0;
+  font-size:12px;
+  line-height:1.5;
+  text-align:left;
+}
+
+@media (max-width:640px){
+  .card{
+    padding:20px;
+  }
+
+  .cardTitle{
+    font-size:24px;
+  }
+}

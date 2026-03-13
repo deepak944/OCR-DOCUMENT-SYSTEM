@@ -1,0 +1,38 @@
+services:
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: ocr-ai-service
+    ports:
+      - "8000:8000"
+    volumes:
+      - paddlex-cache:/root/.paddlex
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ocr-backend
+    environment:
+      - PORT=5000
+      - AI_SERVICE_URL=http://ai-service:8000
+    depends_on:
+      - ai-service
+    ports:
+      - "5000:5000"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ocr-frontend
+    environment:
+      - VITE_API_URL=http://localhost:5000
+    depends_on:
+      - backend
+    ports:
+      - "5173:5173"
+
+volumes:
+  paddlex-cache:
