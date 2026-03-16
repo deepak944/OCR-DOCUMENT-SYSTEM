@@ -87,8 +87,8 @@ exports.downloadWordDocument = async (req, res) => {
 
     const response = await convertPdfToWord(filePath, originalName);
 
-    const contentType = response.headers["content-type"] || "application/msword";
-    const fallbackName = `${path.parse(originalName || "document.pdf").name}.doc`;
+    const contentType = response.headers["content-type"] || "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    const fallbackName = `${path.parse(originalName || "document.pdf").name}.docx`;
     const contentDisposition = response.headers["content-disposition"] || `attachment; filename=\"${fallbackName}\"`;
 
     res.setHeader("Content-Type", contentType);

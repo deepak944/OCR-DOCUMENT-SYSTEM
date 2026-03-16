@@ -29,10 +29,10 @@ formData.append("file", processedFile)
 
 const response = await downloadWordFile(formData)
 
-const contentType = response.headers["content-type"] || "application/msword"
+const contentType = response.headers["content-type"] || "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 const disposition = response.headers["content-disposition"]
 const downloadedName = getFileNameFromDisposition(disposition)
-const fallbackName = `${processedFile.name.replace(/\.pdf$/i, "") || "document"}.doc`
+const fallbackName = `${processedFile.name.replace(/\.pdf$/i, "") || "document"}.docx`
 
 const blob = new Blob([response.data], { type: contentType })
 const url = window.URL.createObjectURL(blob)

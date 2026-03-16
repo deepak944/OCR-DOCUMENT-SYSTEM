@@ -82,15 +82,15 @@ async def convert_pdf_to_word_api(background_tasks: BackgroundTasks, file: Uploa
             buffer.write(await file.read())
 
         original_stem = Path(file.filename).stem or "document"
-        word_file_name = f"{original_stem}-{uuid4().hex[:8]}.doc"
+        word_file_name = f"{original_stem}-{uuid4().hex[:8]}.docx"
         word_file_path = os.path.join(WORD_EXPORT_FOLDER, word_file_name)
 
         convert_pdf_to_word_doc(request_pdf_path, word_file_path)
 
         response = FileResponse(
             path=word_file_path,
-            media_type="application/msword",
-            filename=f"{original_stem}.doc"
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            filename=f"{original_stem}.docx"
         )
         background_tasks.add_task(_remove_file_if_exists, word_file_path)
         background_tasks.add_task(_remove_dir_if_empty, WORD_EXPORT_FOLDER)
