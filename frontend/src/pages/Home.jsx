@@ -14,7 +14,7 @@ return(
 <section className="card">
 
 <h1 className="cardTitle">OCR Document Extractor</h1>
-<p className="cardSubtitle">Upload a PDF, extract text and tables, then download the output in Word format.</p>
+<p className="cardSubtitle">Upload a PDF, extract text, tables, and embedded images, then download the output in Word format.</p>
 
 <UploadBox setResult={setResult} setProcessedFile={setProcessedFile}/>
 

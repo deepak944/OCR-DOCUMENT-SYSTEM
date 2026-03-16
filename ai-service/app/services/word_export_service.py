@@ -1,6 +1,15 @@
+from collections import defaultdict
+from io import BytesIO
+import logging
+
+import fitz
 from docx import Document
+from docx.shared import Inches
+from PIL import Image
 
 from app.services.document_services import process_document
+
+WORD_IMAGE_WIDTH_INCHES = 5.8
 
 
 def _safe_sort_key(value):
@@ -88,35 +97,144 @@ def _append_tables(document, tables):
                 doc_table.cell(row_index, col_index).text = value
 
 
+def _normalized_page_number(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _group_images_by_page(images):
+    grouped_images = defaultdict(list)
+
+    for image in images:
+        if not isinstance(image, dict):
+            continue
+
+        page_number = _normalized_page_number(image.get("page_number"))
+        if page_number is None:
+            continue
+
+        grouped_images[page_number].append(image)
+
+    return grouped_images
+
+
+def _image_sort_key(image):
+    if not isinstance(image, dict):
+        return (float("inf"), float("inf"))
+
+    image_index = image.get("image_index")
+    xref = image.get("xref")
+    return (_safe_sort_key(image_index), _safe_sort_key(xref))
+
+
+def _extract_image_bytes(pdf_document, image_meta, page_number):
+    xref = _normalized_page_number(image_meta.get("xref") if isinstance(image_meta, dict) else None)
+
+    if xref is None:
+        return None
+
+    try:
+        image_data = pdf_document.extract_image(xref)
+    except Exception:
+        logging.exception("Unable to extract image xref=%s for page %s", xref, page_number)
+        return None
+
+    return image_data.get("image")
+
+
+def _to_docx_compatible_image_stream(raw_image_bytes):
+    if not raw_image_bytes:
+        return None
+
+    try:
+        with Image.open(BytesIO(raw_image_bytes)) as image:
+            prepared_image = image
+            if prepared_image.mode in ("CMYK", "P"):
+                prepared_image = prepared_image.convert("RGB")
+
+            output_stream = BytesIO()
+            prepared_image.save(output_stream, format="PNG")
+            output_stream.seek(0)
+            return output_stream
+    except Exception:
+        fallback_stream = BytesIO(raw_image_bytes)
+        fallback_stream.seek(0)
+        return fallback_stream
+
+
+def _append_page_images(document, pdf_document, page_number, page_images):
+    if not page_images:
+        return
+
+    document.add_paragraph("Extracted images:")
+    embedded_count = 0
+
+    for image_position, image_meta in enumerate(sorted(page_images, key=_image_sort_key), start=1):
+        raw_image_bytes = _extract_image_bytes(pdf_document, image_meta, page_number)
+        image_stream = _to_docx_compatible_image_stream(raw_image_bytes)
+
+        if image_stream is None:
+            continue
+
+        document.add_paragraph(f"Image {image_position}")
+
+        try:
+            image_paragraph = document.add_paragraph()
+            image_paragraph.add_run().add_picture(image_stream, width=Inches(WORD_IMAGE_WIDTH_INCHES))
+            embedded_count += 1
+        except Exception:
+            logging.exception("Failed to embed image %s on page %s", image_position, page_number)
+
+    if embedded_count == 0:
+        document.add_paragraph("Images were detected on this page, but they could not be embedded.")
+
+
 def convert_pdf_to_word_doc(pdf_path, output_doc_path):
     extracted = process_document(pdf_path)
     pages = extracted.get("pages", [])
     tables = extracted.get("tables", [])
+    images = extracted.get("images", [])
+    images_by_page = _group_images_by_page(images)
 
     document = Document()
     document.add_heading("PDF to Word Conversion", level=0)
+    pdf_document = fitz.open(pdf_path)
 
-    if not pages:
-        document.add_paragraph("No text could be extracted from the uploaded PDF.")
+    try:
+        if not pages:
+            document.add_paragraph("No text could be extracted from the uploaded PDF.")
 
-    for page in pages:
-        page_number = page.get("page_number")
-        page_label = page_number if page_number is not None else "Unknown"
-        document.add_heading(f"Page {page_label}", level=1)
+        for page in pages:
+            page_number = page.get("page_number")
+            page_label = page_number if page_number is not None else "Unknown"
+            normalized_page_number = _normalized_page_number(page_number)
+            document.add_heading(f"Page {page_label}", level=1)
 
-        blocks = sorted(page.get("blocks", []), key=_bbox_sort_key)
-        has_text = False
+            blocks = sorted(page.get("blocks", []), key=_bbox_sort_key)
+            has_text = False
 
-        for block in blocks:
-            text = _normalize_text(block.get("text", ""))
-            if not text:
-                continue
+            for block in blocks:
+                text = _normalize_text(block.get("text", ""))
+                if not text:
+                    continue
 
-            document.add_paragraph(text)
-            has_text = True
+                document.add_paragraph(text)
+                has_text = True
 
-        if not has_text:
-            document.add_paragraph("No text detected on this page.")
+            if not has_text:
+                document.add_paragraph("No text detected on this page.")
+
+            if normalized_page_number is not None:
+                _append_page_images(
+                    document,
+                    pdf_document,
+                    normalized_page_number,
+                    images_by_page.get(normalized_page_number, [])
+                )
+    finally:
+        pdf_document.close()
 
     _append_tables(document, tables)
 

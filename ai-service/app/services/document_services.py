@@ -1,4 +1,8 @@
-from app.ocr.pdf_processor import create_request_image_dir, convert_pdf_page_to_image
+from app.ocr.pdf_processor import (
+    create_request_image_dir,
+    convert_pdf_page_to_image,
+    extract_embedded_images
+)
 from app.ocr.ocr_engine import run_ocr
 from app.ocr.native_text_extractor import extract_pdf_text_blocks
 from app.ocr.table_parser import extract_tables
@@ -45,9 +49,16 @@ def process_document(pdf_path):
             logging.warning("Table extraction failed for %s: %s", pdf_path, exc)
             tables = []
 
+        try:
+            images = extract_embedded_images(pdf_path)
+        except Exception as exc:
+            logging.warning("Image extraction failed for %s: %s", pdf_path, exc)
+            images = []
+
         output = {
             "pages": results,
-            "tables": tables
+            "tables": tables,
+            "images": images
         }
 
         return output

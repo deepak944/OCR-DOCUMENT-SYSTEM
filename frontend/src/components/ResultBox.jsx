@@ -8,6 +8,18 @@ const [downloadError, setDownloadError] = useState("")
 
 if(!result) return null
 
+const payload = result?.data || result
+
+const extractedImages = Array.isArray(payload?.images) ? payload.images : []
+
+const previewPayload = {
+...payload,
+images: extractedImages.map((image) => {
+const { data_url, ...rest } = image || {}
+return rest
+})
+}
+
 const getFileNameFromDisposition = (contentDisposition) => {
 if (!contentDisposition) return null
 const match = contentDisposition.match(/filename\*?=(?:UTF-8''|"?)([^";]+)/i)
@@ -65,9 +77,44 @@ disabled={isDownloading}
 </button>
 </div>
 
+<div className="imageSection">
+<h4>Extracted Images ({extractedImages.length})</h4>
+
+{extractedImages.length === 0 && (
+<p className="fileName">No embedded images were found in this PDF.</p>
+)}
+
+{extractedImages.length > 0 && (
+<div className="imageGrid">
+{extractedImages.map((image, index) => (
+<div
+className="imageCard"
+key={`${image?.page_number || "page"}-${image?.image_index || index}-${image?.xref || "xref"}`}
+>
+{image?.data_url ? (
+<img src={image.data_url}
+alt={`Extracted image ${index + 1}`}
+className="extractedImage"
+loading="lazy"
+/>
+) : (
+<div className="imageUnavailable">
+Preview unavailable (image too large)
+</div>
+)}
+
+<p className="imageMeta">
+Page {image?.page_number || "?"} | {image?.width || "?"}x{image?.height || "?"} | {image?.extension || "unknown"}
+</p>
+</div>
+))}
+</div>
+)}
+</div>
+
 <pre className="resultPreview">
 
-{JSON.stringify(result,null,2)}
+{JSON.stringify(previewPayload,null,2)}
 
 </pre>
 

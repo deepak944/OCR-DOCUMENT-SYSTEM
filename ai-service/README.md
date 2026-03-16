@@ -1,60 +1,47 @@
-# OCR Document System
+# AI Service (FastAPI OCR)
 
-## OCR FastAPI Service (ai-service)
+This service processes uploaded PDF files and returns:
+- text blocks per page
+- detected tables
+- extracted embedded images
+- Word (`.docx`) conversion output
 
-### Architecture overview
+## Endpoints
+- `GET /` -> health check
+- `POST /process-document` -> OCR JSON (pages, tables, images)
+- `POST /convert-pdf-to-word` -> Word file download
 
-- **API layer**: `ai-service/app/main.py`
-  - FastAPI app with:
-    - `GET /` health check
-    - `POST /process-document`: accepts PDF upload, validates, stores, processes
-- **Configuration**: `ai-service/app/config.py`
-  - `UPLOAD_FOLDER`: `uploads`
-  - `IMAGE_FOLDER`: `temp_imagess`
-  - `OCR_LANGUAGE`: `en`
-- **Orchestration**: `ai-service/app/services/document_services.py`
-  - `convert_pdf_to_images(pdf_path)`
-  - `run_ocr(image_path)` per page
-  - `extract_tables(pdf_path)`
-  - returns:
-    - `pages: [{page_number, blocks}, ...]`
-    - `tables: [ ... ]`
-- **OCR engine**: `ai-service/app/ocr/ocr_engine.py`
-  - PaddleOCR (`paddleocr.PaddleOCR`)
-  - returns text blocks with bbox + confidence
-- **PDF to image**: `ai-service/app/ocr/pdf_processor.py`
-  - PyMuPDF (`fitz`)
-  - saves PNG files to `temp_imagess`
-- **Table parsing**: `ai-service/app/ocr/table_parser.py`
-  - camelot (`camelot.read_pdf`)
-  - table -> `table.df.to_dict()`
+## Processing Pipeline
+1. Extract native text blocks from PDF using `PyMuPDF`.
+2. If a page has no native text, render page image and run `PaddleOCR` fallback.
+3. Extract tables using `camelot`.
+4. Extract embedded images from PDF using `PyMuPDF` image APIs.
+5. For Word conversion, write text + tables + per-page images into `.docx`.
 
-### Data flow
+## Response Fields (`/process-document`)
+- `pages`: list of `{ page_number, blocks[] }`
+- `tables`: list of table dictionaries
+- `images`: list of image metadata:
+  - `page_number`
+  - `image_index`
+  - `xref`
+  - `extension`
+  - `mime_type`
+  - `width`
+  - `height`
+  - `size_bytes`
+  - `inline_preview_available`
+  - `data_url` (nullable base64 preview)
 
-1. Client uploads PDF to `/process-document`
-2. File saved in `uploads/`
-3. Convert PDF pages to images
-4. OCR each image page
-5. Extract tables from PDF
-6. Return structured JSON:
-   - `{"pages": [...], "tables": [...]}`
-
-### Dependencies (core)
-
+## Core Libraries
 - `fastapi`, `uvicorn`
 - `paddleocr`, `paddlepaddle`
-- `PyMuPDF`, `camelot-py`
-- `opencv-python-headless`, `Pillow`
-- `pandas`, `numpy`
+- `PyMuPDF`
+- `camelot-py`
+- `python-docx`
+- `Pillow`
 
-### Notes
-
-- Partial failure handling:
-  - page OCR failure logs warning; continue processing
-  - table parse failure returns empty list
-- Cleanup and filename collision controls are not implemented
-
-## Run locally
+## Run Locally
 
 ```bash
 cd ai-service
@@ -62,8 +49,19 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-## Example request
+## Example Requests
+OCR:
 
 ```bash
-curl -X POST "http://127.0.0.1:8000/process-document" -F "file=@/path/to/document.pdf" -H "accept: application/json"
+curl -X POST "http://127.0.0.1:8000/process-document" ^
+  -F "file=@C:/path/to/document.pdf" ^
+  -H "accept: application/json"
+```
+
+Word conversion:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/convert-pdf-to-word" ^
+  -F "file=@C:/path/to/document.pdf" ^
+  --output output.docx
 ```
