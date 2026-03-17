@@ -1,15 +1,22 @@
 services:
   ai-service:
+    image: ${DOCKERHUB_USERNAME:-local}/ocr-ai-service:${IMAGE_TAG:-latest}
     build:
       context: ./ai-service
       dockerfile: Dockerfile
     container_name: ocr-ai-service
+    environment:
+      - OCR_CPU_THREADS=1
+      - OCR_FALLBACK_DPI=220
+      - OCR_MAX_SIDE=1800
+      - OCR_ENABLE_PREPROCESSING=false
     ports:
       - "8000:8000"
     volumes:
       - paddlex-cache:/root/.paddlex
 
   backend:
+    image: ${DOCKERHUB_USERNAME:-local}/ocr-backend:${IMAGE_TAG:-latest}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -23,6 +30,7 @@ services:
       - "5000:5000"
 
   frontend:
+    image: ${DOCKERHUB_USERNAME:-local}/ocr-frontend:${IMAGE_TAG:-latest}
     build:
       context: ./frontend
       dockerfile: Dockerfile

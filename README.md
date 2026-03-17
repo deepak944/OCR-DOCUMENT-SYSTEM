@@ -17,6 +17,8 @@ Full-stack OCR app to process PDF documents and return:
 - Added extracted image gallery in frontend result panel.
 - Updated Word export to embed extracted images page-wise in the generated `.docx`.
 - Restored and aligned `ai-service/requirements.txt` for FastAPI + OCR runtime.
+- Improved scanned-PDF OCR flow: low-text pages now trigger high-resolution fallback OCR and image preprocessing.
+- Added memory-safe OCR defaults for Docker (`OCR_CPU_THREADS`, `OCR_FALLBACK_DPI`, `OCR_MAX_SIDE`, `OCR_ENABLE_PREPROCESSING`).
 
 ## API Flow
 1. Frontend uploads PDF to backend `POST /upload`.
@@ -71,6 +73,16 @@ Run full stack:
 ```bash
 docker compose up --build
 ```
+
+Optional image publishing variables:
+- `DOCKERHUB_USERNAME` (default: `local`)
+- `IMAGE_TAG` (default: `latest`)
+
+AI OCR tuning variables (via Docker/ENV):
+- `OCR_CPU_THREADS` (default: `1`)
+- `OCR_FALLBACK_DPI` (default: `220`)
+- `OCR_MAX_SIDE` (default: `1800`)
+- `OCR_ENABLE_PREPROCESSING` (default: `false`)
 
 Open:
 - Frontend: `http://localhost:5173`

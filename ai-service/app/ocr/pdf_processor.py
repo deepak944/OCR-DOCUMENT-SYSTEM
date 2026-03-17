@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 from uuid import uuid4
 from app.config import IMAGE_FOLDER
+from app.config import OCR_FALLBACK_DPI
 
 DEFAULT_MAX_INLINE_IMAGE_BYTES = 1_500_000
 
@@ -57,7 +58,8 @@ def convert_pdf_page_to_image(pdf_path, page_number, request_folder):
 
     try:
         page = pdf.load_page(page_number - 1)
-        pix = page.get_pixmap(dpi=220)
+        # Keep fallback OCR image resolution configurable to control memory usage.
+        pix = page.get_pixmap(dpi=OCR_FALLBACK_DPI)
         image_path = os.path.join(request_folder, f"page_{page_number}.png")
         pix.save(image_path)
         return image_path
