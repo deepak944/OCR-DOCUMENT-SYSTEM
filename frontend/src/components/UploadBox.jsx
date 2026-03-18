@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { uploadFile } from "../services/api"
 
-function UploadBox({setResult, setProcessedFile}){
+function UploadBox({setResult, setProcessedFile, setIsLoading}){
 
 const [file,setFile] = useState(null)
 const [error,setError] = useState("")
@@ -24,6 +24,7 @@ formData.append("file",file)
 
 try {
 setIsUploading(true)
+if (setIsLoading) setIsLoading(true)
 setError("")
 setResult(null)
 const res = await uploadFile(formData)
@@ -36,6 +37,7 @@ setResult(null)
 setProcessedFile(null)
 } finally {
 setIsUploading(false)
+if (setIsLoading) setIsLoading(false)
 }
 
 }

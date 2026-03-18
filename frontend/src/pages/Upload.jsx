@@ -6,6 +6,7 @@ import ResultBox from "../components/ResultBox";
 function Upload() {
   const [result, setResult] = useState(null);
   const [processedFile, setProcessedFile] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   return (
     <>
@@ -20,9 +21,10 @@ function Upload() {
           <UploadBox
             setResult={setResult}
             setProcessedFile={setProcessedFile}
+            setIsLoading={setIsLoading}
           />
 
-          <ResultBox result={result} processedFile={processedFile} />
+          <ResultBox result={result} processedFile={processedFile} isLoading={isLoading} />
         </section>
       </main>
     </>
