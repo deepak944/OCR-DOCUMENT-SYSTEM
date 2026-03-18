@@ -335,29 +335,13 @@ const register = async (req, res) => {
       password: hashedPassword,
     });
 
-    // Generate token
-    const token = generateToken({
-      userId: user.id,
-      email: user.email,
-    });
-
-    // Create session
-    await Session.create({
-      userId: user.id,
-      token,
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
-      ipAddress: req.ip,
-      userAgent: req.get('user-agent'),
-    });
-
-    // Return user without password
+    // Return user without password — no token, user must log in manually
     const userResponse = user.toJSON();
     delete userResponse.password;
 
     res.status(201).json({
-      message: "User registered successfully",
+      message: "User registered successfully. Please log in.",
       user: userResponse,
-      token,
     });
   } catch (error) {
     console.error("Register error:", error);

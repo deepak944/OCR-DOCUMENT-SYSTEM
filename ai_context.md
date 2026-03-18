@@ -83,11 +83,13 @@ Browser → frontend (port 5173)
 ### OCR Performance Improvements
 - `run_in_threadpool()` — OCR and Word export run in thread pool, keeps FastAPI event loop free
 - SHA-256 file hash cache (`_ocr_cache`) — identical files skip re-processing (max 50 entries, FIFO eviction)
-- `OCR_FALLBACK_DPI=300` (was 220) — better quality for scanned docs
-- `OCR_MAX_SIDE=3000` (was 1800) — prevents downscaling scanned pages
-- `OCR_ENABLE_PREPROCESSING=True` (was False) — enables grayscale, denoise, Otsu threshold, deskew
-- Deskew step corrects rotation artifacts from physical scanning
-- Otsu thresholding replaces adaptive threshold (better for uneven scan lighting)
+- `OCR_FALLBACK_DPI=200` (docker default) — DPI for rendering scanned pages
+- `OCR_MAX_SIDE=1600` (docker default) — prevents excessive memory on large scans
+- `OCR_ENABLE_PREPROCESSING=False` (docker default) — set to True to enable grayscale/denoise/Otsu/deskew
+- `OCR_DET_MODEL=PP-OCRv5_mobile_det` — lighter detection model, reduces RAM vs server model
+- `use_doc_orientation_classify=False` + `use_doc_unwarping=False` — disables heavy pipeline models (PP-LCNet, UVDoc)
+- Fallback PaddleOCR init if version doesn't support new kwargs
+- `gc.collect()` + page image deletion after each page OCR (peak memory management)
 
 ### Scanned PDF flow
 1. `extract_pdf_text_blocks()` — try native text extraction
@@ -171,3 +173,9 @@ docker-compose down && docker-compose up --build
 ```
 
 Both Dockerfiles use `npm install` to pick up all dependencies.
+
+### Healthcheck & startup order
+- `ai-service` has a healthcheck (`GET /`, interval 30s, start_period 120s)
+- `backend` uses `condition: service_healthy` — won't start until AI service is ready
+- `ai-service` has `mem_limit: 3g` to prevent OOM kills (exit code 137)
+- Mobile OCR model + disabled pipeline steps keep memory usage low

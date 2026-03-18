@@ -31,12 +31,23 @@ def _get_ocr():
             enable_mkldnn=False,
             enable_cinn=False,
             cpu_threads=max(1, OCR_CPU_THREADS),
+            # Disable heavy pipeline steps that load extra models (UVDoc, PP-LCNet)
+            use_doc_orientation_classify=False,
+            use_doc_unwarping=False,
         )
-        # Allow overriding the detection model to use a lighter variant
+        # Allow overriding the detection model to use a lighter variant.
+        # Try both parameter names — newer PaddleOCR uses det_model_name,
+        # older versions use det_model_dir or ignore unknown kwargs.
         if OCR_DET_MODEL:
             init_kwargs["det_model_name"] = OCR_DET_MODEL
 
-        _ocr_instance = PaddleOCR(**init_kwargs)
+        try:
+            _ocr_instance = PaddleOCR(**init_kwargs)
+        except TypeError:
+            # Fallback: strip unsupported kwargs and retry
+            for key in ("use_doc_orientation_classify", "use_doc_unwarping", "det_model_name"):
+                init_kwargs.pop(key, None)
+            _ocr_instance = PaddleOCR(**init_kwargs)
 
     return _ocr_instance
 

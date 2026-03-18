@@ -1,11 +1,11 @@
 # Docker Setup
 
-This project runs 3 services:
-- `frontend` (Vite React app on `5173`)
-- `backend` (Node/Express API on `5000`)
-- `ai-service` (FastAPI OCR service on `8000`)
+Three services:
+- `frontend` — Vite React app on port `5173`
+- `backend` — Node/Express API on port `5000`
+- `ai-service` — FastAPI OCR service on port `8000`
 
-## 1) Run Locally With Docker Compose
+## Run Locally
 
 ```bash
 docker compose up --build
@@ -17,19 +17,43 @@ Open:
 - AI health: `http://localhost:8000/`
 
 Stop:
-
 ```bash
 docker compose down
 ```
 
-## 2) Push Images To Docker Hub
+## Healthcheck & Startup Order
 
-`docker-compose.yml` is configured with image tags:
-- `${DOCKERHUB_USERNAME}/ocr-ai-service:${IMAGE_TAG}`
-- `${DOCKERHUB_USERNAME}/ocr-backend:${IMAGE_TAG}`
-- `${DOCKERHUB_USERNAME}/ocr-frontend:${IMAGE_TAG}`
+The AI service exposes a healthcheck (`GET /`) with:
+- `interval: 30s`
+- `timeout: 20s`
+- `retries: 5`
+- `start_period: 120s` (allows time for model loading)
 
-PowerShell example:
+The backend uses `condition: service_healthy` so it won't start until the AI service is ready. This prevents `socket hang up` and `ECONNREFUSED` errors on cold boot.
+
+## Memory Limits
+
+The AI service is capped at `3g` RAM (`mem_limit: 3g`, `memswap_limit: 3g`). Docker Desktop must have at least **4 GB** allocated.
+
+If the container exits with code `137` (OOM kill):
+1. Open Docker Desktop → Settings → Resources → increase Memory to 4–6 GB
+2. Ensure `OCR_DET_MODEL=PP-OCRv5_mobile_det` is set (lighter model)
+3. Keep `OCR_ENABLE_PREPROCESSING=false` to reduce peak memory
+
+## OCR Environment Variables
+
+| Variable | Default | Notes |
+|----------|---------|-------|
+| `OCR_CPU_THREADS` | 2 | PaddleOCR CPU threads |
+| `OCR_FALLBACK_DPI` | 200 | DPI for rendering scanned pages |
+| `OCR_MAX_SIDE` | 1600 | Max image side before downscale |
+| `OCR_ENABLE_PREPROCESSING` | false | Grayscale/denoise/Otsu/deskew pass |
+| `OCR_DET_MODEL` | PP-OCRv5_mobile_det | Detection model name |
+| `PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK` | True | Skip connectivity check on startup |
+
+The mobile detection model and disabled pipeline steps (document orientation classifier, unwarping) significantly reduce RAM usage compared to the server model defaults.
+
+## Push Images to Docker Hub
 
 ```powershell
 $env:DOCKERHUB_USERNAME="your-dockerhub-username"
@@ -39,10 +63,9 @@ docker compose build
 docker compose push
 ```
 
-## 3) Deploy From Docker Hub Images
+## Deploy from Docker Hub
 
-On another machine/server:
-
+On another machine:
 ```powershell
 $env:DOCKERHUB_USERNAME="your-dockerhub-username"
 $env:IMAGE_TAG="v1.0.0"
@@ -50,36 +73,20 @@ docker compose pull
 docker compose up -d
 ```
 
-## 4) Scanned PDF Extraction (How To Make It Work)
+## Scanned PDF Validation
 
-The OCR pipeline now does this automatically:
-1. Extract native text from PDF.
-2. If a page has low/weak native text, render it as fallback image (`OCR_FALLBACK_DPI`, default `220`).
-3. Downscale oversized images before OCR (`OCR_MAX_SIDE`, default `1800`) to reduce container memory pressure.
-4. Run PaddleOCR in compatibility mode (works whether `cls` arg is supported or not).
-5. Optional preprocessing OCR pass can be enabled with `OCR_ENABLE_PREPROCESSING=true`.
-
-To validate with a scanned file:
-
+Test a scanned PDF directly against the AI service:
 ```powershell
 curl -X POST "http://localhost:8000/process-document" `
   -H "accept: application/json" `
   -F "file=@C:/path/to/scanned.pdf"
 ```
 
-Check response:
-- `pages[*].blocks` should contain recognized text lines.
-- If a page still has empty blocks, test with clearer scan (>=300 DPI, non-blurry, non-rotated).
-
-Memory-safe defaults in `docker-compose.yml`:
-- `OCR_CPU_THREADS=1`
-- `OCR_FALLBACK_DPI=220`
-- `OCR_MAX_SIDE=1800`
-- `OCR_ENABLE_PREPROCESSING=false`
+Check `pages[*].blocks` in the response for recognized text. If blocks are empty, try a cleaner scan (300+ DPI, non-blurry, non-rotated).
 
 ## Common Fixes
-If AI service fails with `uvicorn` not found:
 
+### uvicorn not found
 ```bash
 docker compose down
 docker compose build --no-cache ai-service
@@ -87,17 +94,20 @@ docker compose up -d
 docker compose logs -f ai-service
 ```
 
-If `ocr-ai-service` exits with code `137`:
-```bash
-docker compose down
-docker compose up --build -d
-docker compose logs -f ai-service
-```
+### TLS handshake timeout (node:20-alpine)
+This is a Docker Desktop network issue:
+1. Restart Docker Desktop
+2. Run `docker pull node:20-alpine` manually
+3. Set DNS to `8.8.8.8` / `1.1.1.1` in Docker Engine JSON settings
+4. Retry `docker compose up --build`
 
-Then increase Docker Desktop memory limit (recommended at least `6 GB`) and keep:
-- `OCR_CPU_THREADS=1`
-- `OCR_ENABLE_PREPROCESSING=false`
+### Exit code 137 (OOM)
+1. Increase Docker Desktop memory to 4+ GB
+2. Verify `OCR_DET_MODEL=PP-OCRv5_mobile_det` in docker-compose.yml
+3. Set `OCR_ENABLE_PREPROCESSING=false`
+4. Rebuild: `docker compose up --build`
 
 ## Notes
-- Named volume `paddlex-cache` caches Paddle/PaddleX models at `/root/.paddlex`.
+- Named volume `paddlex-cache` caches PaddleX models at `/root/.paddlex` across restarts.
 - Temporary upload/image folders are cleaned after each request.
+- Both `backend` and `frontend` Dockerfiles use `npm install` (not `npm ci`) to handle dependency changes without lockfile conflicts.

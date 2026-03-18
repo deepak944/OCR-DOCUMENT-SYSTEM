@@ -1,25 +1,23 @@
 # Quick Start Guide
 
-## Getting Started in 5 Minutes
+## Option 1: Docker (Recommended)
 
-### Option 1: Docker (Recommended)
+1. Make sure Docker Desktop is running with at least 4 GB memory allocated.
 
-1. Make sure Docker Desktop is running
-
-2. Clone and start the application:
+2. Start the full stack:
 ```bash
 docker compose up --build
 ```
 
 3. Open your browser:
    - Frontend: http://localhost:5173
-   - Backend: http://localhost:5000
+   - Backend: http://localhost:5000/health
    - AI Service: http://localhost:8000
 
 4. Create an account:
    - Click "Create account" on the login page
    - Fill in your name, email, and password
-   - You'll be automatically logged in
+   - After registration you'll be **redirected to the login page** — sign in with your new credentials
 
 5. Upload a PDF:
    - Click "Choose File" and select a PDF
@@ -28,225 +26,89 @@ docker compose up --build
    - Download as Word document
 
 6. View your activity:
-   - Click "View History" to see all your uploads
+   - Click "History" in the navbar to see all your uploads
+   - Delete individual records with the trash button
 
-### Option 2: Local Development
+## Option 2: Local Development
 
-#### 1. Start AI Service
 ```bash
+# Terminal 1 — AI Service
 cd ai-service
 pip install -r requirements.txt
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
 
-#### 2. Start Backend (new terminal)
-```bash
+# Terminal 2 — Backend
 cd backend
 npm install
 npm run dev
-```
 
-#### 3. Start Frontend (new terminal)
-```bash
+# Terminal 3 — Frontend
 cd frontend
 npm install
 npm run dev
 ```
 
-#### 4. Open http://localhost:5173 and create an account
+Then open http://localhost:5173.
 
-## First Time Setup
+## First-Time User Flow
 
-### 1. Register a New Account
-- Navigate to http://localhost:5173
-- Click "Create account"
-- Enter your details:
-  - Full Name: Your name
-  - Email: your@email.com
-  - Password: At least 6 characters
-- Click "Create Account"
+1. Navigate to http://localhost:5173 → redirected to `/login`
+2. Click "Create account" → fill in name, email, password (min 6 chars)
+3. Click "Create Account" → redirected back to login with a success message
+4. Sign in with your credentials → land on the home page
+5. Upload a PDF → wait for OCR processing (5–30 seconds depending on size)
+6. View results: extracted text, tables, embedded images
+7. Click "Download Word" to get a `.docx` file
+8. Click "History" in the navbar to review past uploads
 
-### 2. You're Logged In!
-You'll see:
-- Your name in the top right corner
-- A logout button
-- The main upload interface
+## API Quick Test
 
-### 3. Upload Your First Document
-- Click "Choose File"
-- Select a PDF file
-- Click "Upload & Process"
-- Wait for processing (usually 5-30 seconds)
-- View results:
-  - Extracted text
-  - Tables (if any)
-  - Embedded images (if any)
-
-### 4. Download as Word
-- After processing, click "Download Word"
-- A .docx file will be downloaded with all content
-
-### 5. View Your History
-- Click "View History" link
-- See all your past uploads
-- Check success/failure status
-- View file names and sizes
-
-## Testing the API
-
-### Register via API
 ```bash
+# Register
 curl -X POST http://localhost:5000/api/auth/register \
   -H "Content-Type: application/json" \
-  -d '{
-    "name": "Test User",
-    "email": "test@example.com",
-    "password": "password123"
-  }'
-```
+  -d '{"name":"Test User","email":"test@example.com","password":"password123"}'
 
-### Login via API
-```bash
+# Login — copy the token from the response
 curl -X POST http://localhost:5000/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{
-    "email": "test@example.com",
-    "password": "password123"
-  }'
-```
+  -d '{"email":"test@example.com","password":"password123"}'
 
-Save the token from the response!
-
-### Upload Document via API
-```bash
+# Upload a PDF
 curl -X POST http://localhost:5000/upload \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
   -F "file=@/path/to/document.pdf"
-```
 
-### Get Activity History via API
-```bash
-curl -X GET http://localhost:5000/api/activities \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE"
+# View history
+curl http://localhost:5000/api/activities \
+  -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
 ## Common Issues
 
-### "No token provided" error
-- Make sure you're logged in
-- Token expires after 24 hours - log in again
+| Problem | Fix |
+|---------|-----|
+| AI service exits with code 137 | OOM kill — increase Docker Desktop memory to 4+ GB |
+| TLS handshake timeout during build | Docker network issue — restart Docker Desktop, or `docker pull node:20-alpine` manually |
+| "socket hang up" on first upload | AI service still loading models — wait ~60s and retry |
+| "No token provided" | You're not logged in, or token expired (24h) |
+| Can't upload | File must be a PDF |
 
-### "AI service is unavailable"
-- Check if AI service is running on port 8000
-- Run: `docker compose logs ai-service`
+## Docker Troubleshooting
 
-### Can't upload files
-- Make sure you're logged in
-- Check file is a PDF
-- Check file size (large files take longer)
-
-### Docker issues
 ```bash
-# Stop all containers
-docker compose down
+# View logs
+docker compose logs -f
 
 # Rebuild from scratch
+docker compose down
 docker compose build --no-cache
-
-# Start again
 docker compose up
 ```
 
-## What's Next?
+## Notes
 
-### Current Features (In-Memory)
-- User registration and login
-- JWT authentication
-- Activity tracking
-- OCR processing
-- Word export
-
-### Coming Soon (Database Integration)
-- Persistent user data
-- Password reset via email
-- Google OAuth login
-- Email verification
-- User profile management
-- Document storage
-
-See [AUTHENTICATION_GUIDE.md](./AUTHENTICATION_GUIDE.md) for:
-- Complete API documentation
-- Database migration guide
-- Security features
-- Future enhancements
-
-## Tips
-
-1. **Session Duration**: Tokens last 24 hours. After that, log in again.
-
-2. **Activity Tracking**: Every upload and export is tracked automatically.
-
-3. **File Support**: Currently only PDF files are supported.
-
-4. **Processing Time**: Depends on PDF size and complexity:
-   - Small PDFs (1-5 pages): 5-10 seconds
-   - Medium PDFs (5-20 pages): 10-30 seconds
-   - Large PDFs (20+ pages): 30+ seconds
-
-5. **Memory Storage**: User data is stored in memory (resets on server restart). Database integration coming soon!
-
-## Need Help?
-
-- Check [AUTHENTICATION_GUIDE.md](./AUTHENTICATION_GUIDE.md) for detailed docs
-- Check [README.md](./README.md) for system overview
-- Check Docker logs: `docker compose logs -f`
-- Check backend logs in terminal
-- Check browser console for frontend errors
-
-## Architecture Overview
-
-```
-┌─────────────┐
-│   Browser   │
-│  (React)    │
-└──────┬──────┘
-       │ JWT Token
-       ↓
-┌─────────────┐
-│   Backend   │
-│  (Express)  │
-│  + Auth     │
-└──────┬──────┘
-       │
-       ↓
-┌─────────────┐
-│ AI Service  │
-│  (FastAPI)  │
-│  + OCR      │
-└─────────────┘
-```
-
-## Security Notes
-
-- Passwords are hashed with bcrypt (10 rounds)
-- JWT tokens expire after 24 hours
-- Tokens are stored in localStorage
-- All OCR endpoints require authentication
-- CORS is enabled for development
-
-## Production Checklist
-
-Before deploying to production:
-
-- [ ] Change JWT_SECRET to a strong random value
-- [ ] Set up database (PostgreSQL/MySQL)
-- [ ] Enable HTTPS
-- [ ] Set up email service for password reset
-- [ ] Configure Google OAuth credentials
-- [ ] Set up proper CORS origins
-- [ ] Enable rate limiting
-- [ ] Set up logging and monitoring
-- [ ] Configure file upload limits
-- [ ] Set up backup strategy
-
-Happy coding! 🚀
+- Session tokens last 24 hours. After expiry, log in again.
+- All user data is in-memory and resets on container restart. See `DATABASE_MIGRATION_GUIDE.md` to add persistence.
+- Only PDF files are supported for upload.
+- Processing time: ~5–10s for small PDFs, 30s+ for large scanned documents.

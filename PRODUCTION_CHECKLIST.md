@@ -181,10 +181,13 @@
 - [ ] Use multi-stage builds
 - [ ] Minimize image sizes
 - [ ] Use specific version tags (not `latest`)
-- [ ] Implement health checks
-- [ ] Configure resource limits
+- [x] Implement health checks (ai-service healthcheck configured)
+- [x] Configure resource limits (mem_limit: 3g on ai-service)
 - [ ] Use secrets management
 - [ ] Implement container scanning
+- [x] Backend waits for ai-service healthcheck (condition: service_healthy)
+- [x] Mobile OCR model to reduce memory footprint (PP-OCRv5_mobile_det)
+- [ ] Increase Docker Desktop memory to 4+ GB in production host
 
 ### CI/CD
 - [ ] Set up CI/CD pipeline
