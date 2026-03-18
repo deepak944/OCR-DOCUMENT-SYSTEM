@@ -1,14 +1,28 @@
 # OCR Document System
 
-Full-stack OCR app to process PDF documents and return:
+Full-stack OCR app with authentication and user management to process PDF documents and return:
 - extracted text
 - extracted tables
 - extracted embedded images
 - downloadable Word (`.docx`) output with text, tables, and images
 
+## 🚀 New Features
+
+### Authentication & User Management
+- ✅ User registration and login with JWT authentication
+- ✅ Secure password hashing (bcrypt)
+- ✅ Protected routes requiring authentication
+- ✅ 24-hour session management
+- ✅ User activity tracking and history
+- ✅ Modern, responsive authentication UI
+- ✅ Ready for Google OAuth (UI implemented)
+- ✅ Password reset page (UI ready)
+
+See [AUTHENTICATION_GUIDE.md](./AUTHENTICATION_GUIDE.md) for complete documentation.
+
 ## Stack
-- `frontend`: React + Vite (`http://localhost:5173`)
-- `backend`: Node.js + Express (`http://localhost:5000`)
+- `frontend`: React + Vite + React Router (`http://localhost:5173`)
+- `backend`: Node.js + Express + JWT + bcrypt (`http://localhost:5000`)
 - `ai-service`: FastAPI + PaddleOCR + PyMuPDF (`http://localhost:8000`)
 
 ## Recent Updates
@@ -21,11 +35,14 @@ Full-stack OCR app to process PDF documents and return:
 - Added memory-safe OCR defaults for Docker (`OCR_CPU_THREADS`, `OCR_FALLBACK_DPI`, `OCR_MAX_SIDE`, `OCR_ENABLE_PREPROCESSING`).
 
 ## API Flow
-1. Frontend uploads PDF to backend `POST /upload`.
-2. Backend forwards file to AI service `POST /process-document`.
-3. AI service extracts text/tables/images and returns JSON.
-4. Frontend can request Word file via backend `POST /download-word`.
-5. AI service generates `.docx` and backend streams it to browser.
+1. User registers/logs in to get JWT token
+2. Frontend uploads PDF to backend `POST /upload` (with auth token)
+3. Backend verifies token and forwards file to AI service `POST /process-document`
+4. AI service extracts text/tables/images and returns JSON
+5. Backend tracks user activity
+6. Frontend can request Word file via backend `POST /download-word` (with auth token)
+7. AI service generates `.docx` and backend streams it to browser
+8. User can view activity history at `/history`
 
 ## Output Shape
 `POST /upload` returns:
@@ -125,6 +142,8 @@ npm run dev
 Backend (`backend/.env`):
 - `PORT=5000`
 - `AI_SERVICE_URL=http://localhost:8000`
+- `JWT_SECRET=your-super-secret-jwt-key-change-this-in-production`
+- `JWT_EXPIRES_IN=24h`
 
 Frontend (`frontend/.env`):
 - `VITE_API_URL=http://localhost:5000`
@@ -140,12 +159,23 @@ docker compose logs -f ai-service
 ```
 
 ## Key Endpoints
-Backend:
-- `POST /upload` -> OCR JSON output
-- `POST /download-word` -> downloads `.docx`
+
+### Authentication
+- `POST /api/auth/register` -> Register new user
+- `POST /api/auth/login` -> Login and get JWT token
+- `POST /api/auth/logout` -> Logout (requires auth)
+- `GET /api/auth/profile` -> Get user profile (requires auth)
+- `GET /api/auth/verify` -> Verify token validity (requires auth)
+
+### Activities
+- `GET /api/activities` -> Get user activity history (requires auth)
+
+### Documents (Protected)
+- `POST /upload` -> OCR JSON output (requires auth)
+- `POST /download-word` -> downloads `.docx` (requires auth)
 - `GET /health` -> backend health
 
-AI Service:
+### AI Service
 - `GET /` -> service health
 - `POST /process-document` -> text/tables/images extraction
 - `POST /convert-pdf-to-word` -> Word generation

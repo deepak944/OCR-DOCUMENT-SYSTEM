@@ -2,6 +2,7 @@ const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
 const { processDocument, convertPdfToWord } = require("../services/aiService");
+const activityStore = require("../models/Activity");
 
 function removeDirIfEmpty(dirPath) {
   if (!dirPath || path.basename(dirPath) !== "uploads") {
@@ -40,6 +41,15 @@ exports.uploadDocument = async (req, res) => {
 
     const result = await processDocument(filePath);
 
+    // Track activity
+    activityStore.create({
+      userId: req.user.id,
+      action: "OCR_PROCESS",
+      fileName: req.file.originalname,
+      fileSize: req.file.size,
+      status: "success",
+    });
+
     res.json({
       message: "OCR processing completed",
       data: result
@@ -48,6 +58,16 @@ exports.uploadDocument = async (req, res) => {
   } catch (error) {
 
     console.error("OCR processing failed:", error.message);
+
+    // Track failed activity
+    activityStore.create({
+      userId: req.user.id,
+      action: "OCR_PROCESS",
+      fileName: req.file?.originalname,
+      fileSize: req.file?.size,
+      status: "failed",
+      error: error.message,
+    });
 
     if (axios.isAxiosError(error)) {
       if (error.response) {
@@ -87,6 +107,15 @@ exports.downloadWordDocument = async (req, res) => {
 
     const response = await convertPdfToWord(filePath, originalName);
 
+    // Track activity
+    activityStore.create({
+      userId: req.user.id,
+      action: "WORD_EXPORT",
+      fileName: originalName,
+      fileSize: req.file.size,
+      status: "success",
+    });
+
     const contentType = response.headers["content-type"] || "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
     const fallbackName = `${path.parse(originalName || "document.pdf").name}.docx`;
     const contentDisposition = response.headers["content-disposition"] || `attachment; filename=\"${fallbackName}\"`;
@@ -98,6 +127,16 @@ exports.downloadWordDocument = async (req, res) => {
 
   } catch (error) {
     console.error("Word download conversion failed:", error.message);
+
+    // Track failed activity
+    activityStore.create({
+      userId: req.user.id,
+      action: "WORD_EXPORT",
+      fileName: req.file?.originalname,
+      fileSize: req.file?.size,
+      status: "failed",
+      error: error.message,
+    });
 
     if (axios.isAxiosError(error)) {
       if (error.response) {

@@ -12,7 +12,8 @@ from app.config import (
     OCR_LANGUAGE,
     OCR_CPU_THREADS,
     OCR_MAX_SIDE,
-    OCR_ENABLE_PREPROCESSING
+    OCR_ENABLE_PREPROCESSING,
+    OCR_DET_MODEL,
 )
 
 _ocr_instance = None
@@ -22,15 +23,20 @@ def _get_ocr():
     global _ocr_instance
 
     if _ocr_instance is None:
-        _ocr_instance = PaddleOCR(
+        init_kwargs = dict(
             use_angle_cls=True,
             lang=OCR_LANGUAGE,
             device="cpu",
             enable_hpi=False,
             enable_mkldnn=False,
             enable_cinn=False,
-            cpu_threads=max(1, OCR_CPU_THREADS)
+            cpu_threads=max(1, OCR_CPU_THREADS),
         )
+        # Allow overriding the detection model to use a lighter variant
+        if OCR_DET_MODEL:
+            init_kwargs["det_model_name"] = OCR_DET_MODEL
+
+        _ocr_instance = PaddleOCR(**init_kwargs)
 
     return _ocr_instance
 

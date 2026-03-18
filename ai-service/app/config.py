@@ -26,7 +26,9 @@ def _env_bool(name, default=False):
     return raw_value.strip().lower() in ("1", "true", "yes", "on")
 
 
-OCR_CPU_THREADS = _env_int("OCR_CPU_THREADS", 1)
-OCR_FALLBACK_DPI = _env_int("OCR_FALLBACK_DPI", 220)
-OCR_MAX_SIDE = _env_int("OCR_MAX_SIDE", 1800)
+OCR_CPU_THREADS = _env_int("OCR_CPU_THREADS", 2)
+OCR_FALLBACK_DPI = _env_int("OCR_FALLBACK_DPI", 200)
+OCR_MAX_SIDE = _env_int("OCR_MAX_SIDE", 1600)
 OCR_ENABLE_PREPROCESSING = _env_bool("OCR_ENABLE_PREPROCESSING", False)
+# Detection model name — use mobile variant by default to reduce memory usage
+OCR_DET_MODEL = os.getenv("OCR_DET_MODEL", "PP-OCRv5_mobile_det")

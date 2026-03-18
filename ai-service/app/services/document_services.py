@@ -8,6 +8,7 @@ from app.ocr.native_text_extractor import extract_pdf_text_blocks
 from app.ocr.table_parser import extract_tables
 from app.config import IMAGE_FOLDER
 import logging
+import gc
 import os
 import re
 import shutil
@@ -77,6 +78,7 @@ def process_document(pdf_path):
             blocks = native_blocks
 
             if _should_try_ocr(native_blocks):
+                image_path = None
                 try:
                     if request_dir is None:
                         request_dir = create_request_image_dir(pdf_path)
@@ -88,6 +90,14 @@ def process_document(pdf_path):
                     logging.exception("OCR failed for page %s in %s", page_number, pdf_path)
                     blocks = native_blocks
                     failed_pages += 1
+                finally:
+                    # Delete the page image immediately to free disk + memory
+                    if image_path and os.path.exists(image_path):
+                        try:
+                            os.remove(image_path)
+                        except OSError:
+                            pass
+                    gc.collect()
 
             results.append({
                 "page_number": page_number,

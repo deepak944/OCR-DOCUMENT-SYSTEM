@@ -1,5 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.responses import FileResponse
+from fastapi.concurrency import run_in_threadpool
+import hashlib
 import os
 import logging
 from pathlib import Path
@@ -10,6 +12,28 @@ from app.services.word_export_service import convert_pdf_to_word_doc
 from app.config import UPLOAD_FOLDER, WORD_EXPORT_FOLDER
 
 app = FastAPI(title="OCR AI Service")
+
+# In-memory result cache keyed by SHA-256 file hash (max 50 entries, FIFO eviction)
+_ocr_cache: dict = {}
+_MAX_CACHE = 50
+
+
+def _sha256(path: str) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _cache_get(key: str):
+    return _ocr_cache.get(key)
+
+
+def _cache_set(key: str, value):
+    if len(_ocr_cache) >= _MAX_CACHE:
+        _ocr_cache.pop(next(iter(_ocr_cache)))
+    _ocr_cache[key] = value
 
 
 def _remove_file_if_exists(file_path):
@@ -48,8 +72,16 @@ async def process_document_api(file: UploadFile = File(...)):
         with open(file_path, "wb") as buffer:
             buffer.write(await file.read())
 
-        result = process_document(file_path)
+        # Return cached result for identical files
+        file_key = _sha256(file_path)
+        cached = _cache_get(file_key)
+        if cached is not None:
+            logging.info("Cache hit for %s", file.filename)
+            return cached
 
+        # Run CPU-bound OCR in thread pool — keeps event loop free
+        result = await run_in_threadpool(process_document, file_path)
+        _cache_set(file_key, result)
         return result
 
     except Exception as exc:
@@ -85,7 +117,7 @@ async def convert_pdf_to_word_api(background_tasks: BackgroundTasks, file: Uploa
         word_file_name = f"{original_stem}-{uuid4().hex[:8]}.docx"
         word_file_path = os.path.join(WORD_EXPORT_FOLDER, word_file_name)
 
-        convert_pdf_to_word_doc(request_pdf_path, word_file_path)
+        await run_in_threadpool(convert_pdf_to_word_doc, request_pdf_path, word_file_path)
 
         response = FileResponse(
             path=word_file_path,

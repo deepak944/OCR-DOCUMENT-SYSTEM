@@ -6,14 +6,25 @@ services:
       dockerfile: Dockerfile
     container_name: ocr-ai-service
     environment:
-      - OCR_CPU_THREADS=1
-      - OCR_FALLBACK_DPI=220
-      - OCR_MAX_SIDE=1800
+      - OCR_CPU_THREADS=2
+      - OCR_FALLBACK_DPI=200
+      - OCR_MAX_SIDE=1600
       - OCR_ENABLE_PREPROCESSING=false
+      - OCR_DET_MODEL=PP-OCRv5_mobile_det
+      - PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK=True
+      - FLAGS_use_mkldnn=0
     ports:
       - "8000:8000"
     volumes:
       - paddlex-cache:/root/.paddlex
+    mem_limit: 3g
+    memswap_limit: 3g
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"]
+      interval: 30s
+      timeout: 20s
+      retries: 5
+      start_period: 120s
 
   backend:
     image: ${DOCKERHUB_USERNAME:-local}/ocr-backend:${IMAGE_TAG:-latest}
@@ -24,8 +35,11 @@ services:
     environment:
       - PORT=5000
       - AI_SERVICE_URL=http://ai-service:8000
+      - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key-change-this-in-production}
+      - JWT_EXPIRES_IN=24h
     depends_on:
-      - ai-service
+      ai-service:
+        condition: service_healthy
     ports:
       - "5000:5000"
 
