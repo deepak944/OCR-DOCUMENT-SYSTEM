@@ -1,12 +1,16 @@
-const activityStore = require("../models/Activity");
+const { Activity, User } = require("../models");
 
-// Get user's activity history
-const getUserActivities = (req, res) => {
+const getUserActivities = async (req, res) => {
   try {
     const userId = req.user.id;
     const limit = parseInt(req.query.limit) || 50;
 
-    const activities = activityStore.findByUserId(userId, limit);
+    const activities = await Activity.findAll({
+      where: { userId },
+      order: [['createdAt', 'DESC']],
+      limit,
+      attributes: ['id', 'action', 'fileName', 'fileSize', 'status', 'error', 'createdAt'],
+    });
 
     res.json({
       activities,
@@ -18,22 +22,22 @@ const getUserActivities = (req, res) => {
   }
 };
 
-// Delete a specific activity (user-scoped)
-const deleteActivity = (req, res) => {
+const deleteActivity = async (req, res) => {
   try {
     const userId = req.user.id;
-    const id = parseInt(req.params.id, 10);
+    const activityId = req.params.id;
 
-    if (isNaN(id)) {
-      return res.status(400).json({ error: "Invalid activity id" });
+    const activity = await Activity.findOne({
+      where: { id: activityId, userId }
+    });
+
+    if (!activity) {
+      return res.status(404).json({ error: "Activity not found or not authorized" });
     }
 
-    const deleted = activityStore.deleteById(id, userId);
-    if (!deleted) {
-      return res.status(404).json({ error: "Activity not found" });
-    }
+    await activity.destroy();
 
-    res.json({ message: "Activity deleted" });
+    res.json({ message: "Activity deleted successfully" });
   } catch (error) {
     console.error("Delete activity error:", error);
     res.status(500).json({ error: "Failed to delete activity" });

@@ -1,8 +1,7 @@
 const { verifyToken } = require("../utils/jwt");
-const sessionStore = require("../models/Session");
-const userStore = require("../models/User");
+const { Session, User } = require("../models");
 
-const authMiddleware = (req, res, next) => {
+const authMiddleware = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
@@ -13,18 +12,24 @@ const authMiddleware = (req, res, next) => {
     const token = authHeader.substring(7);
 
     // Check if token is blacklisted
-    if (sessionStore.isTokenBlacklisted(token)) {
+    const session = await Session.findOne({ where: { token } });
+    if (!session || session.isBlacklisted) {
       return res.status(401).json({ error: "Token has been invalidated" });
+    }
+
+    // Check if token expired
+    if (new Date() > session.expiresAt) {
+      return res.status(401).json({ error: "Token has expired" });
     }
 
     // Verify token
     const decoded = verifyToken(token);
     if (!decoded) {
-      return res.status(401).json({ error: "Invalid or expired token" });
+      return res.status(401).json({ error: "Invalid token" });
     }
 
     // Check if user still exists
-    const user = userStore.findById(decoded.userId);
+    const user = await User.findByPk(decoded.userId);
     if (!user) {
       return res.status(401).json({ error: "User not found" });
     }

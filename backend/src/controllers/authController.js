@@ -1,14 +1,11 @@
 const bcrypt = require("bcryptjs");
-const userStore = require("../models/User");
-const sessionStore = require("../models/Session");
+const { User, Session } = require("../models");
 const { generateToken } = require("../utils/jwt");
 
-// Register new user
 const register = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    // Validation
     if (!name || !email || !password) {
       return res.status(400).json({ error: "All fields are required" });
     }
@@ -17,14 +14,13 @@ const register = async (req, res) => {
       return res.status(400).json({ error: "Password must be at least 6 characters" });
     }
 
-    // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return res.status(400).json({ error: "Invalid email format" });
     }
 
-    // Check if user already exists
-    const existingUser = userStore.findByEmail(email);
+    // Check if user exists
+    const existingUser = await User.findOne({ where: { email: email.toLowerCase() } });
     if (existingUser) {
       return res.status(409).json({ error: "User already exists with this email" });
     }
@@ -33,18 +29,19 @@ const register = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create user
-    const user = userStore.create({
+    const user = await User.create({
       name,
       email: email.toLowerCase(),
       password: hashedPassword,
     });
 
     // Return user without password — no token, user must log in manually
-    const { password: _, ...userWithoutPassword } = user;
+    const userResponse = user.toJSON();
+    delete userResponse.password;
 
     res.status(201).json({
       message: "User registered successfully. Please log in.",
-      user: userWithoutPassword,
+      user: userResponse,
     });
   } catch (error) {
     console.error("Register error:", error);
@@ -52,18 +49,16 @@ const register = async (req, res) => {
   }
 };
 
-// Login user
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Validation
     if (!email || !password) {
       return res.status(400).json({ error: "Email and password are required" });
     }
 
     // Find user
-    const user = userStore.findByEmail(email.toLowerCase());
+    const user = await User.findOne({ where: { email: email.toLowerCase() } });
     if (!user) {
       return res.status(401).json({ error: "Invalid credentials" });
     }
@@ -74,21 +69,31 @@ const login = async (req, res) => {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
+    // Update last login
+    await user.update({ lastLoginAt: new Date() });
+
     // Generate token
     const token = generateToken({
       userId: user.id,
       email: user.email,
     });
 
-    // Track session
-    sessionStore.addUserSession(user.id, token);
+    // Create session
+    await Session.create({
+      userId: user.id,
+      token,
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
+    });
 
     // Return user without password
-    const { password: _, ...userWithoutPassword } = user;
+    const userResponse = user.toJSON();
+    delete userResponse.password;
 
     res.json({
       message: "Login successful",
-      user: userWithoutPassword,
+      user: userResponse,
       token,
     });
   } catch (error) {
@@ -97,15 +102,15 @@ const login = async (req, res) => {
   }
 };
 
-// Logout user
-const logout = (req, res) => {
+const logout = async (req, res) => {
   try {
     const token = req.token;
-    const userId = req.user.id;
 
     // Blacklist the token
-    sessionStore.blacklistToken(token);
-    sessionStore.removeUserSession(userId, token);
+    await Session.update(
+      { isBlacklisted: true },
+      { where: { token } }
+    );
 
     res.json({ message: "Logout successful" });
   } catch (error) {
@@ -114,23 +119,23 @@ const logout = (req, res) => {
   }
 };
 
-// Get current user profile
-const getProfile = (req, res) => {
+const getProfile = async (req, res) => {
   try {
-    const user = userStore.findById(req.user.id);
+    const user = await User.findByPk(req.user.id, {
+      attributes: { exclude: ['password'] },
+    });
+
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    const { password: _, ...userWithoutPassword } = user;
-    res.json({ user: userWithoutPassword });
+    res.json({ user });
   } catch (error) {
     console.error("Get profile error:", error);
     res.status(500).json({ error: "Failed to fetch profile" });
   }
 };
 
-// Verify token (for frontend to check if token is still valid)
 const verifyTokenEndpoint = (req, res) => {
   res.json({
     valid: true,

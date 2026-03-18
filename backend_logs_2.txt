@@ -1,0 +1,8 @@
+ocr-backend  | 
+ocr-backend  | > backend@1.0.0 start
+ocr-backend  | > node server.js
+ocr-backend  | 
+ocr-backend  | [dotenv@17.3.1] injecting env (0) from .env -- tip: ⚙️  enable debug logging with { debug: true }
+ocr-backend  | ✅ Database connected
+ocr-backend  | ✅ Database connected
+ocr-backend  | Server running on port 5000

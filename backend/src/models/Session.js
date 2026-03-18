@@ -1,50 +1,49 @@
-// In-memory session/token blacklist storage
-class SessionStore {
-  constructor() {
-    this.blacklistedTokens = new Set();
-    this.userSessions = new Map(); // userId -> Set of tokens
-  }
+const { DataTypes } = require('sequelize');
+const sequelize = require('../config/database');
 
-  blacklistToken(token) {
-    this.blacklistedTokens.add(token);
-  }
+const Session = sequelize.define('Session', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
+  },
+  userId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'users',
+      key: 'id',
+    },
+    onDelete: 'CASCADE',
+  },
+  token: {
+    type: DataTypes.TEXT,
+    allowNull: false,
+  },
+  expiresAt: {
+    type: DataTypes.DATE,
+    allowNull: false,
+  },
+  isBlacklisted: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  },
+  ipAddress: {
+    type: DataTypes.STRING(45),
+    allowNull: true,
+  },
+  userAgent: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+}, {
+  tableName: 'sessions',
+  timestamps: true,
+  indexes: [
+    { fields: ['userId'] },
+    { fields: ['token'] },
+    { fields: ['expiresAt'] },
+  ],
+});
 
-  isTokenBlacklisted(token) {
-    return this.blacklistedTokens.has(token);
-  }
-
-  addUserSession(userId, token) {
-    if (!this.userSessions.has(userId)) {
-      this.userSessions.set(userId, new Set());
-    }
-    this.userSessions.get(userId).add(token);
-  }
-
-  removeUserSession(userId, token) {
-    if (this.userSessions.has(userId)) {
-      this.userSessions.get(userId).delete(token);
-    }
-  }
-
-  getUserSessions(userId) {
-    return this.userSessions.get(userId) || new Set();
-  }
-
-  clearUserSessions(userId) {
-    if (this.userSessions.has(userId)) {
-      const tokens = this.userSessions.get(userId);
-      tokens.forEach(token => this.blacklistToken(token));
-      this.userSessions.delete(userId);
-    }
-  }
-
-  // Clean up expired tokens periodically
-  cleanup() {
-    // In production with DB, this would query and remove expired tokens
-    // For now, we rely on JWT expiration validation
-  }
-}
-
-const sessionStore = new SessionStore();
-
-module.exports = sessionStore;
+module.exports = Session;

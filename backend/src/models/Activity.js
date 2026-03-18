@@ -1,46 +1,53 @@
-// In-memory activity tracking (temporary - will be replaced with database)
-class ActivityStore {
-  constructor() {
-    this.activities = [];
-    this.nextId = 1;
-  }
+const { DataTypes } = require('sequelize');
+const sequelize = require('../config/database');
 
-  create(activityData) {
-    const activity = {
-      id: this.nextId++,
-      ...activityData,
-      timestamp: new Date().toISOString(),
-    };
-    this.activities.push(activity);
-    return activity;
-  }
+const Activity = sequelize.define('Activity', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
+  },
+  userId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'users',
+      key: 'id',
+    },
+    onDelete: 'CASCADE',
+  },
+  action: {
+    type: DataTypes.STRING(50),
+    allowNull: false,
+  },
+  fileName: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+  },
+  fileSize: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
+  status: {
+    type: DataTypes.ENUM('success', 'failed'),
+    allowNull: false,
+  },
+  error: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+  metadata: {
+    type: DataTypes.JSON,
+    allowNull: true,
+  },
+}, {
+  tableName: 'activities',
+  timestamps: true,
+  indexes: [
+    { fields: ['userId'] },
+    { fields: ['action'] },
+    { fields: ['createdAt'] },
+  ],
+});
 
-  findByUserId(userId, limit = 50) {
-    return this.activities
-      .filter(activity => activity.userId === userId)
-      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-      .slice(0, limit);
-  }
-
-  getAll(limit = 100) {
-    return this.activities
-      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-      .slice(0, limit);
-  }
-
-  deleteById(id, userId) {
-    const index = this.activities.findIndex(
-      (a) => a.id === id && a.userId === userId
-    );
-    if (index === -1) return null;
-    return this.activities.splice(index, 1)[0];
-  }
-
-  deleteByUserId(userId) {
-    this.activities = this.activities.filter(activity => activity.userId !== userId);
-  }
-}
-
-const activityStore = new ActivityStore();
-
-module.exports = activityStore;
+module.exports = Activity;

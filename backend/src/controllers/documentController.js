@@ -2,7 +2,7 @@ const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
 const { processDocument, convertPdfToWord } = require("../services/aiService");
-const activityStore = require("../models/Activity");
+const { Activity } = require("../models");
 
 function removeDirIfEmpty(dirPath) {
   if (!dirPath || path.basename(dirPath) !== "uploads") {
@@ -42,7 +42,7 @@ exports.uploadDocument = async (req, res) => {
     const result = await processDocument(filePath);
 
     // Track activity
-    activityStore.create({
+    await Activity.create({
       userId: req.user.id,
       action: "OCR_PROCESS",
       fileName: req.file.originalname,
@@ -60,7 +60,7 @@ exports.uploadDocument = async (req, res) => {
     console.error("OCR processing failed:", error.message);
 
     // Track failed activity
-    activityStore.create({
+    await Activity.create({
       userId: req.user.id,
       action: "OCR_PROCESS",
       fileName: req.file?.originalname,
@@ -108,7 +108,7 @@ exports.downloadWordDocument = async (req, res) => {
     const response = await convertPdfToWord(filePath, originalName);
 
     // Track activity
-    activityStore.create({
+    await Activity.create({
       userId: req.user.id,
       action: "WORD_EXPORT",
       fileName: originalName,
@@ -129,7 +129,7 @@ exports.downloadWordDocument = async (req, res) => {
     console.error("Word download conversion failed:", error.message);
 
     // Track failed activity
-    activityStore.create({
+    await Activity.create({
       userId: req.user.id,
       action: "WORD_EXPORT",
       fileName: req.file?.originalname,

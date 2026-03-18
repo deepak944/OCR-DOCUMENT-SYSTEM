@@ -1,51 +1,60 @@
-// In-memory user storage (temporary - will be replaced with database)
-class UserStore {
-  constructor() {
-    this.users = [];
-    this.nextId = 1;
-  }
+const { DataTypes } = require('sequelize');
+const sequelize = require('../config/database');
 
-  create(userData) {
-    const user = {
-      id: this.nextId++,
-      ...userData,
-      createdAt: new Date().toISOString(),
-    };
-    this.users.push(user);
-    return user;
-  }
+const User = sequelize.define('User', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
+  },
+  name: {
+    type: DataTypes.STRING(100),
+    allowNull: false,
+  },
+  email: {
+    type: DataTypes.STRING(255),
+    allowNull: false,
+    unique: true,
+    validate: {
+      isEmail: true,
+    },
+  },
+  password: {
+    type: DataTypes.STRING(255),
+    allowNull: false,
+  },
+  googleId: {
+    type: DataTypes.STRING(255),
+    unique: true,
+    allowNull: true,
+  },
+  isEmailVerified: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  },
+  emailVerificationToken: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+  },
+  resetPasswordToken: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+  },
+  resetPasswordExpires: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  lastLoginAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+}, {
+  tableName: 'users',
+  timestamps: true,
+  indexes: [
+    { fields: ['email'] },
+    { fields: ['googleId'] },
+  ],
+});
 
-  findByEmail(email) {
-    return this.users.find(user => user.email === email);
-  }
-
-  findById(id) {
-    return this.users.find(user => user.id === id);
-  }
-
-  getAll() {
-    return this.users;
-  }
-
-  update(id, updates) {
-    const index = this.users.findIndex(user => user.id === id);
-    if (index !== -1) {
-      this.users[index] = { ...this.users[index], ...updates };
-      return this.users[index];
-    }
-    return null;
-  }
-
-  delete(id) {
-    const index = this.users.findIndex(user => user.id === id);
-    if (index !== -1) {
-      return this.users.splice(index, 1)[0];
-    }
-    return null;
-  }
-}
-
-// Singleton instance
-const userStore = new UserStore();
-
-module.exports = userStore;
+module.exports = User;
