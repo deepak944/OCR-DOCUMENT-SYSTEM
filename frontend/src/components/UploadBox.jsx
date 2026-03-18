@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { uploadFile } from "../services/api"
+import { uploadFile, saveResultToCache } from "../services/api"
 
 function UploadBox({setResult, setProcessedFile, setIsLoading}){
 
@@ -30,6 +30,8 @@ setResult(null)
 const res = await uploadFile(formData)
 setResult(res.data)
 setProcessedFile(file)
+// Cache result so History "View Details" can restore it
+saveResultToCache(file.name, res.data)
 } catch (err) {
 const apiError = err?.response?.data?.error || err?.response?.data?.detail
 setError(apiError || "Upload failed. Please try again.")

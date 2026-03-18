@@ -42,3 +42,27 @@ export const getActivities = () =>
 
 export const deleteActivity = (id) =>
   API.delete(`/api/activities/${id}`)
+
+// ── Local OCR result cache (keyed by activity id) ──────────────
+const RESULT_CACHE_KEY = "ocr_result_cache"
+const MAX_CACHED = 20
+
+export const saveResultToCache = (fileName, resultData) => {
+  try {
+    const raw = localStorage.getItem(RESULT_CACHE_KEY)
+    const cache = raw ? JSON.parse(raw) : []
+    // Each entry keyed by fileName — keep latest per file
+    const filtered = cache.filter((e) => e.fileName !== fileName)
+    filtered.unshift({ fileName, data: resultData, savedAt: Date.now() })
+    localStorage.setItem(RESULT_CACHE_KEY, JSON.stringify(filtered.slice(0, MAX_CACHED)))
+  } catch (_) {}
+}
+
+export const getResultFromCache = (fileName) => {
+  try {
+    const raw = localStorage.getItem(RESULT_CACHE_KEY)
+    if (!raw) return null
+    const cache = JSON.parse(raw)
+    return cache.find((e) => e.fileName === fileName) || null
+  } catch (_) { return null }
+}

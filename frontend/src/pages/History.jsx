@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { getActivities, deleteActivity } from "../services/api";
+import { useNavigate } from "react-router-dom";
+import { getActivities, deleteActivity, getResultFromCache } from "../services/api";
 import Navbar from "../components/Navbar";
 import Loader from "../components/Loader";
 
@@ -8,6 +9,7 @@ function History() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [deletingId, setDeletingId] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchActivities();
@@ -39,26 +41,30 @@ function History() {
     }
   };
 
+  const handleViewDetails = (activity) => {
+    const cached = getResultFromCache(activity.fileName);
+    navigate("/", {
+      state: {
+        restoredResult: cached ? cached.data : null,
+        restoredFileName: activity.fileName,
+      },
+    });
+  };
+
   const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleString();
+    return new Date(dateString).toLocaleString();
   };
 
   const getActionLabel = (action) => {
-    const labels = {
-      OCR_PROCESS: "OCR Processing",
-      WORD_EXPORT: "Word Export",
-    };
+    const labels = { OCR_PROCESS: "OCR Processing", WORD_EXPORT: "Word Export" };
     return labels[action] || action;
   };
 
-  const getStatusBadge = (status) => {
-    return (
-      <span className={`status-badge status-${status}`}>
-        {status === "success" ? "✓" : "✗"} {status}
-      </span>
-    );
-  };
+  const getStatusBadge = (status) => (
+    <span className={`status-badge status-${status}`}>
+      {status === "success" ? "✓" : "✗"} {status}
+    </span>
+  );
 
   if (loading) {
     return (
@@ -82,43 +88,61 @@ function History() {
           </div>
         ) : (
           <div className="activities-list">
-            {activities.map((activity) => (
-              <div key={activity.id} className="activity-card">
-                <div className="activity-header">
-                  <span className="activity-action">
-                    {getActionLabel(activity.action)}
-                  </span>
-                  <div className="activity-header-right">
-                    {getStatusBadge(activity.status)}
-                    <button
-                      className="delete-activity-btn"
-                      onClick={() => handleDelete(activity.id)}
-                      disabled={deletingId === activity.id}
-                      title="Delete record"
-                    >
-                      {deletingId === activity.id ? "..." : "🗑"}
-                    </button>
+            {activities.map((activity) => {
+              const hasCached = !!getResultFromCache(activity.fileName);
+              return (
+                <div key={activity.id} className="activity-card">
+                  <div className="activity-header">
+                    <span className="activity-action">
+                      {getActionLabel(activity.action)}
+                    </span>
+                    <div className="activity-header-right">
+                      {getStatusBadge(activity.status)}
+                      <button
+                        className="delete-activity-btn"
+                        onClick={() => handleDelete(activity.id)}
+                        disabled={deletingId === activity.id}
+                        title="Delete record"
+                      >
+                        {deletingId === activity.id ? "..." : "🗑"}
+                      </button>
+                    </div>
                   </div>
-                </div>
-                <div className="activity-details">
-                  <p>
-                    <strong>File:</strong> {activity.fileName}
-                  </p>
-                  <p>
-                    <strong>Size:</strong>{" "}
-                    {activity.fileSize ? `${(activity.fileSize / 1024).toFixed(2)} KB` : "—"}
-                  </p>
-                  <p>
-                    <strong>Time:</strong> {formatDate(activity.timestamp)}
-                  </p>
-                  {activity.error && (
-                    <p className="error-text">
-                      <strong>Error:</strong> {activity.error}
+
+                  <div className="activity-details">
+                    <p><strong>File:</strong> {activity.fileName}</p>
+                    <p>
+                      <strong>Size:</strong>{" "}
+                      {activity.fileSize
+                        ? `${(activity.fileSize / 1024).toFixed(2)} KB`
+                        : "—"}
                     </p>
+                    <p><strong>Time:</strong> {formatDate(activity.timestamp)}</p>
+                    {activity.error && (
+                      <p className="error-text">
+                        <strong>Error:</strong> {activity.error}
+                      </p>
+                    )}
+                  </div>
+
+                  {activity.action === "OCR_PROCESS" && activity.status === "success" && (
+                    <div className="activity-footer">
+                      <button
+                        className="view-details-btn"
+                        onClick={() => handleViewDetails(activity)}
+                      >
+                        {hasCached ? "👁 View Details" : "↩ Go to Dashboard"}
+                      </button>
+                      {!hasCached && (
+                        <span className="no-cache-note">
+                          Result not cached — re-upload to view extracted data
+                        </span>
+                      )}
+                    </div>
                   )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

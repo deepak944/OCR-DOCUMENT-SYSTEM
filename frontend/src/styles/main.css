@@ -601,3 +601,67 @@ body{
   height: 110px;
   border-radius: 10px;
 }
+
+/* ── History: View Details footer ───────────────────────────── */
+.activity-footer {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.view-details-btn {
+  border: none;
+  background: var(--brand);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.view-details-btn:hover {
+  background: var(--brand-hover);
+}
+
+.no-cache-note {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ── Home: Restored result banner ───────────────────────────── */
+.restored-banner {
+  margin: 14px 0 0;
+  padding: 10px 14px;
+  background: #ecfdf5;
+  border: 1px solid #6ee7b7;
+  border-radius: 10px;
+  font-size: 13px;
+  color: #065f46;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.restored-clear-btn {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid #6ee7b7;
+  color: #065f46;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.restored-clear-btn:hover {
+  background: #d1fae5;
+}
