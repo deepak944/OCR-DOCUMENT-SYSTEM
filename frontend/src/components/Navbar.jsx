@@ -12,7 +12,7 @@ function Navbar() {
 
   return (
     <div className="navbar">
-      <h2>OCR AI Platform</h2>
+      <h2 className="brand-logo">TextTrack <span className="brand-ai">AI</span></h2>
       {isAuthenticated && (
         <div className="navbar-user">
           <Link to="/" className="navbar-nav-link">Dashboard</Link>

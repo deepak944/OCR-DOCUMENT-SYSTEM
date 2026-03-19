@@ -1,28 +1,28 @@
-:root{
-  --bg-1:#f3f7ff;
-  --bg-2:#edf6f3;
-  --ink:#1f2937;
-  --muted:#5f6b7a;
-  --card:#ffffff;
-  --line:#e2e8f0;
-  --brand:#0f766e;
-  --brand-hover:#0d5e58;
-  --danger:#b42318;
+:root {
+  --bg-1: #0f172a;
+  --bg-2: #1e293b;
+  --ink: #f8fafc;
+  --muted: #94a3b8;
+  --card: rgba(30, 41, 59, 0.7);
+  --line: rgba(255, 255, 255, 0.1);
+  --brand: #3b82f6;
+  --brand-hover: #2563eb;
+  --danger: #ef4444;
 }
 
 *{
   box-sizing:border-box;
 }
 
-body{
-  margin:0;
-  font-family:Poppins, "Segoe UI", Tahoma, sans-serif;
-  color:var(--ink);
-  background:
-    radial-gradient(1000px 500px at -10% -10%, #d9eefc 0%, transparent 60%),
-    radial-gradient(1000px 500px at 110% 0%, #dff7ed 0%, transparent 60%),
-    linear-gradient(160deg, var(--bg-1), var(--bg-2));
-  min-height:100vh;
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: var(--ink);
+  background: 
+    radial-gradient(circle at 15% 50%, rgba(56, 189, 248, 0.15), transparent 25%),
+    radial-gradient(circle at 85% 30%, rgba(129, 140, 248, 0.15), transparent 25%),
+    var(--bg-1);
+  min-height: 100vh;
 }
 
 .navbar{
@@ -46,19 +46,25 @@ body{
   padding:24px 16px 40px;
 }
 
-.card{
-  width:min(780px, 100%);
-  background:var(--card);
-  border:1px solid rgba(15, 23, 42, 0.08);
-  border-radius:18px;
-  padding:28px;
-  box-shadow:0 20px 45px rgba(15, 23, 42, 0.12);
+.card {
+  width: min(780px, 100%);
+  background: var(--card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  padding: 40px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
 }
 
-.cardTitle{
-  margin:0;
-  font-size:30px;
-  line-height:1.2;
+.cardTitle {
+  margin: 0;
+  font-size: 36px;
+  font-weight: 800;
+  line-height: 1.2;
+  background: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .cardSubtitle{
@@ -67,12 +73,60 @@ body{
   font-size:14px;
 }
 
-.uploadBox{
-  margin-top:22px;
-  border:1px solid var(--line);
-  border-radius:12px;
-  padding:16px;
-  background:#fbfdff;
+.uploadBox {
+  margin-top: 30px;
+  border: 2px dashed rgba(56, 189, 248, 0.3);
+  border-radius: 16px;
+  padding: 30px;
+  background: rgba(15, 23, 42, 0.4);
+  transition: border-color 0.3s ease;
+}
+.uploadBox:hover {
+  border-color: rgba(56, 189, 248, 0.6);
+}
+.how-it-works {
+  margin-top: 30px;
+  text-align: left;
+  background: rgba(15, 23, 42, 0.4);
+  border: 1px solid var(--line);
+  padding: 24px;
+  border-radius: 16px;
+}
+.how-it-works h3 {
+  margin-top: 0;
+  font-size: 18px;
+  color: #e2e8f0;
+}
+.how-it-works ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.how-it-works li {
+  font-size: 14px;
+}
+.how-it-works li strong {
+  color: #38bdf8;
+  margin-right: 8px;
+  font-size: 15px;
+}
+.how-it-works li span {
+  color: var(--muted);
+}
+.brand-logo {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: #f8fafc;
+}
+.brand-ai {
+  background: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .fileLabel{

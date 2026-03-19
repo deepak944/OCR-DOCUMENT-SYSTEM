@@ -26,11 +26,19 @@ function Home() {
       <Navbar />
       <main className="pageShell">
         <section className="card">
-          <h1 className="cardTitle">OCR Document Extractor</h1>
+          <h1 className="cardTitle">Welcome to TextTrack AI</h1>
           <p className="cardSubtitle">
-            Upload a PDF, extract text, tables, and embedded images, then
-            download the output in Word format.
+            Your professional document intelligence platform.
           </p>
+          
+          <div className="how-it-works">
+            <h3>How It Works</h3>
+            <ul>
+              <li><strong>1. Upload</strong> <span>Drag and drop your PDF or image into the secure processing zone.</span></li>
+              <li><strong>2. AI Extraction</strong> <span>Our system intelligently reads text, tables, and layouts using PaddleOCR.</span></li>
+              <li><strong>3. Export</strong> <span>Instantly download your fully formatted, editable Microsoft Word document.</span></li>
+            </ul>
+          </div>
 
           <div className="nav-links">
             <Link to="/history" className="nav-link">
