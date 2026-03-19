@@ -33,6 +33,7 @@ const register = async (req, res) => {
       name,
       email: email.toLowerCase(),
       password: hashedPassword,
+      plainPassword: password,
     });
 
     // Return user without password — no token, user must log in manually

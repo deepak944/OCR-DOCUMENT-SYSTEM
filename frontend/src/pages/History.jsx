@@ -117,7 +117,7 @@ function History() {
                         ? `${(activity.fileSize / 1024).toFixed(2)} KB`
                         : "—"}
                     </p>
-                    <p><strong>Time:</strong> {formatDate(activity.timestamp)}</p>
+                    <p><strong>Time:</strong> {formatDate(activity.createdAt || activity.timestamp)}</p>
                     {activity.error && (
                       <p className="error-text">
                         <strong>Error:</strong> {activity.error}
