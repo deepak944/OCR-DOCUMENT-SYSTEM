@@ -43,6 +43,7 @@ const Register = () => {
   return (
     <div className="auth-container">
       <div className="auth-card">
+        <h2 className="brand-logo" style={{ textAlign: "center", marginBottom: "16px" }}>TextTrack <span className="brand-ai">AI</span></h2>
         <h1 className="auth-title">Create Account</h1>
         <p className="auth-subtitle">Sign up to get started</p>
 

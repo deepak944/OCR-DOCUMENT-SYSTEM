@@ -12,10 +12,12 @@ function Navbar() {
 
   return (
     <div className="navbar">
-      <h2 className="brand-logo">TextTrack <span className="brand-ai">AI</span></h2>
+      <Link to="/" state={null} style={{ textDecoration: 'none' }}>
+        <h2 className="brand-logo">TextTrack <span className="brand-ai">AI</span></h2>
+      </Link>
       {isAuthenticated && (
         <div className="navbar-user">
-          <Link to="/" className="navbar-nav-link">Dashboard</Link>
+          <Link to="/" state={null} className="navbar-nav-link">Dashboard</Link>
           <Link to="/history" className="navbar-nav-link">History</Link>
           <span className="user-name">👤 {user?.name}</span>
           <button onClick={handleLogout} className="logout-btn">
