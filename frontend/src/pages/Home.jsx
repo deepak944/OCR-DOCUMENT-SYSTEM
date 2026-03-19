@@ -18,6 +18,11 @@ function Home() {
       setResult(location.state.restoredResult);
       setRestoredFileName(location.state.restoredFileName || null);
       setProcessedFile(null); // original file not available
+    } else if (!location.state) {
+      // Clear the dashboard if navigated to without any state
+      setResult(null);
+      setRestoredFileName(null);
+      setProcessedFile(null);
     }
   }, [location.state]);
 
