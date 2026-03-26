@@ -8,8 +8,11 @@ The backend is a robust Node.js/Express service that acts as the core orchestrat
 - **Asynchronous I/O**: We use Node.js because it's non-blocking, which is crucial when handling multiple concurrent file uploads and waiting for the AI microservice to respond.
 - **Express**: Provides the routing framework and middleware support (CORS, JSON parsing, logging).
 
-### 2. Security & Authentication (JWT)
-- **JsonWebToken (JWT)**: When a user logs in, the backend generates a signed token. This token contains the user's ID.
+### 🔐 Authentication & Security
+- **JWT**: Stateless authentication using JSON Web Tokens. When a user logs in, the backend generates a signed token containing the user's ID.
+- **Google OAuth**: Integrated via `Passport.js` and `passport-google-oauth20`.
+- **Bcrypt**: Securely hashes passwords before storage.
+- **Nodemailer**: Handles password reset emails with fail-safe console logging.
 - **Why JWT?**: It allows for "Stateless Authentication," meaning the server doesn't need to store session IDs in memory; it simply verifies the signature of the token provided by the client.
 - **Auth Middleware**: Located in `src/middleware/authMiddleware.js`. It intercepts requests to protected routes, decodes the token, and attaches the `user` object to the request.
 

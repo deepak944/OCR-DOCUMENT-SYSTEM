@@ -17,6 +17,11 @@ TextTrack AI's frontend is a high-performance Single Page Application (SPA) desi
 ### 3. Routing & Security
 - **React Router DOM v6**: Handles all navigation.
 - **ProtectedRoute.jsx**: A wrapper component that checks the `AuthContext`. If the user isn't logged in, it redirects them to `/login`, protecting the Dashboard and History pages.
+- `Login.jsx`: User sign-in with Google OAuth support.
+- `Register.jsx`: Account creation.
+- `ForgotPassword.jsx`: Password recovery request.
+- `ResetPassword.jsx`: Token-based password update.
+- `Home.jsx`: Main dashboard.
 
 ### 4. API Communication (Axios)
 - Centralized in `src/services/api.js`.

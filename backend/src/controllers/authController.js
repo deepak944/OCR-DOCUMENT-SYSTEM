@@ -167,12 +167,45 @@ const forgotPassword = async (req, res) => {
       resetPasswordExpires: expiry
     });
 
-    // Simulate sending email
-    console.log("\n--- SIMULATED EMAIL ---");
-    console.log(`To: ${user.email}`);
-    console.log("Subject: Password Reset Request");
-    console.log(`Link: http://localhost:5173/reset-password?token=${token}`);
-    console.log("------------------------\n");
+    const resetLink = `http://localhost:5173/reset-password?token=${token}`;
+
+    // Send real email if configured, otherwise fallback to console
+    if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+      const nodemailer = require("nodemailer");
+      const transporter = nodemailer.createTransport({
+        service: process.env.EMAIL_SERVICE || "gmail",
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS,
+        },
+      });
+
+      const mailOptions = {
+        from: `TextTrack AI <${process.env.EMAIL_USER}>`,
+        to: user.email,
+        subject: "Password Reset Request - TextTrack AI",
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+            <h2 style="color: #0ea5e9;">TextTrack AI</h2>
+            <p>You requested a password reset for your account.</p>
+            <p>Please click the button below to set a new password. This link will expire in 1 hour.</p>
+            <a href="${resetLink}" style="display: inline-block; padding: 12px 24px; background-color: #0ea5e9; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Reset Password</a>
+            <p style="margin-top: 20px; font-size: 14px; color: #64748b;">If you did not request this, please ignore this email.</p>
+            <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+            <p style="font-size: 12px; color: #94a3b8;">TextTrack AI - Advanced Document Intelligence</p>
+          </div>
+        `,
+      };
+
+      await transporter.sendMail(mailOptions);
+      console.log(`✅ Reset email sent to ${user.email}`);
+    } else {
+      // Simulation fallback
+      console.log("\n--- SIMULATED EMAIL (No credentials found) ---");
+      console.log(`To: ${user.email}`);
+      console.log(`Link: ${resetLink}`);
+      console.log("------------------------\n");
+    }
 
     res.json({ message: "If an account exists with that email, a reset link has been sent." });
   } catch (error) {
@@ -222,6 +255,35 @@ const resetPassword = async (req, res) => {
   }
 };
 
+const googleCallback = async (req, res) => {
+  try {
+    const user = req.user;
+    if (!user) {
+      return res.redirect("http://localhost:5173/login?error=Google authentication failed");
+    }
+
+    const { generateToken } = require("../utils/jwt");
+    const token = generateToken({
+      userId: user.id,
+      email: user.email,
+    });
+
+    const { Session } = require("../models");
+    await Session.create({
+      userId: user.id,
+      token,
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
+    });
+
+    res.redirect(`http://localhost:5173/login?token=${token}`);
+  } catch (error) {
+    console.error("Google callback error:", error);
+    res.redirect("http://localhost:5173/login?error=Internal server error during Google login");
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -230,4 +292,5 @@ module.exports = {
   verifyTokenEndpoint,
   forgotPassword,
   resetPassword,
+  googleCallback,
 };

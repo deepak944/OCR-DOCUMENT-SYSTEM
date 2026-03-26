@@ -8,12 +8,14 @@ const { sequelize } = require("./src/models");
 const authRoutes = require("./src/routes/authRoutes");
 const documentRoutes = require("./src/routes/documentRoutes");
 const activityRoutes = require("./src/routes/activityRoutes");
+const passport = require("passport");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json());
+app.use(passport.initialize());
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 

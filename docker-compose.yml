@@ -68,6 +68,8 @@ services:
         condition: service_healthy
     ports:
       - "5000:5000"
+    env_file:
+      - ./backend/.env
 
   frontend:
     image: ${DOCKERHUB_USERNAME:-local}/ocr-frontend:${IMAGE_TAG:-latest}
