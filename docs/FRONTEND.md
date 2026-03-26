@@ -5,8 +5,8 @@ TextTrack AI's frontend is a high-performance Single Page Application (SPA) desi
 ## 🛠 Technology Stack Deep Dive
 
 ### 1. React 18 & Vite
-- **Why React?**: We use React for its component-based architecture, allowing us to build a dynamic, state-driven UI where extraction results update instantly without page reloads.
-- **Why Vite?**: Vite provides an extremely fast development environment and an optimized production build compared to older tools like Create React App.
+- **Why React?**: We use React 19 for its component-based architecture and **Virtual DOM**. React efficiently calculates the minimal differential updates required to display OCR results instantly without full-page reloads, ensuring a premium "application" feel.
+- **Why Vite?**: Vite provides an extremely fast development environment using **Native ES Modules** and optimized Hot Module Replacement (HMR). This significantly reduces developer friction compared to older tools like Create React App.
 
 ### 2. State Management (AuthContext)
 - Located in `src/context/AuthContext.jsx`.

@@ -59,6 +59,17 @@ For a comprehensive explanation of every file, tech, and API in each service, pl
 
 ---
 
+## 📈 Industry Perspective & Best Practices
+
+TextTrack AI is designed with professional enterprise patterns in mind:
+1. **Separation of Concerns (SoC)**: By decoupling the UI, API, and worker services, we ensure that a failure in the AI engine doesn't crash the user's login session.
+2. **Stateless Scalability**: Using JWTs allows the backend to be "stateless," meaning we can run multiple instances of the backend behind a load balancer without needing "sticky sessions."
+3. **Event-Driven Potential**: While currently using direct HTTP, the architecture is ready to be swapped with a Message Queue (RabbitMQ/Kafka) for high-scale asynchronous processing.
+4. **Security by Design**: Password hashing with Bcrypt and ORM migration management are baked into the core to prevent common vulnerabilities.
+
+
+---
+
 ## 📦 File Tech & API Summary
 - **Frontend (`/frontend`)**: Powered by `Vite`. Communicates using `Axios`.
 - **Backend (`/backend`)**: Powered by `Node.js`. Relies on `Sequelize` for database operations.

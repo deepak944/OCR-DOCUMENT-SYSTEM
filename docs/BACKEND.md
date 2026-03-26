@@ -13,8 +13,8 @@ The backend is a robust Node.js/Express service that acts as the core orchestrat
 - **Google OAuth**: Integrated via `Passport.js` and `passport-google-oauth20`.
 - **Bcrypt**: Securely hashes passwords before storage.
 - **Nodemailer**: Handles password reset emails with fail-safe console logging.
-- **Why JWT?**: It allows for "Stateless Authentication," meaning the server doesn't need to store session IDs in memory; it simply verifies the signature of the token provided by the client.
-- **Auth Middleware**: Located in `src/middleware/authMiddleware.js`. It intercepts requests to protected routes, decodes the token, and attaches the `user` object to the request.
+- **Why JWT?**: It allows for **Stateless Authentication**, meaning the server doesn't need to store session IDs in memory; it simply verifies the cryptographic signature (HMAC SHA256) of the token provided by the client. This is essential for horizontal scaling in cloud environments.
+- **Auth Middleware**: Located in `src/middleware/authMiddleware.js`. It acts as a "Request Sentinel," intercepting calls to protected routes, decoding the token, and attaching the `user` object to the request. If the token is expired or tampered with, it blocks the request immediately with a `401 Unauthorized`.
 
 ### 3. Database Management (Sequelize & PostgreSQL)
 - **PostgreSQL**: A powerful relational database chosen for its reliability and support for UUIDs and complex relationships.

@@ -1,183 +1,121 @@
-# AI Context — OCR Document Processing System
+# Master AI Context: TextTrack AI OCR System
 
-Last updated: 2026-03-18
-
-## Project Overview
-
-Full-stack OCR document processing system with three services:
-- `frontend/` — React + Vite SPA (Clean light theme: White & Sky Blue)
-- `backend/` — Node.js / Express REST API (PostgreSQL + Sequelize)
-- `ai-service/` — Python FastAPI OCR engine (PaddleOCR)
-
-All three run in Docker via `docker-compose.yml`.
+This document serves as the "Single Source of Truth" for the TextTrack AI project. It contains every technical nuance, architectural decision, and implementation detail required for an AI or engineer to understand, replicate, or extend the system.
 
 ---
 
-## Architecture
+## 🏗 1. High-Level Architecture
+TextTrack AI is a **containerized 3-tier microservices-style application**.
 
-```
-Browser → frontend (port 5173)
-             ↓ REST
-         backend (port 5000)
-             ↓ HTTP
-         ai-service (port 8000)
-```
+- **Frontend**: React (Vite) SPA. Port 5173.
+- **Backend (Orchestrator)**: Node.js/Express. Port 5000.
+- **AI Service (Worker)**: Python FastAPI. Port 8000.
+- **Database**: PostgreSQL 15. Port 5432.
 
----
-
-## Authentication Flow
-
-- `POST /api/auth/register` — creates user, returns `{ message, user }` (NO token). Frontend redirects to `/login` with `state: { registered: true }`.
-- `POST /api/auth/login` — returns `{ user, token }`. Frontend stores token in `localStorage`.
-- `POST /api/auth/logout` — blacklists token server-side.
-- `GET /api/auth/verify` — validates token, returns user info.
-- All protected routes require `Authorization: Bearer <token>` header.
-- `ProtectedRoute` component redirects unauthenticated users to `/login`.
-- `Login.jsx` reads `location.state.registered` to show a success banner after registration.
+### Request Flow
+1. **User → Frontend**: Drops a PDF.
+2. **Frontend → Backend**: Axios POST `multipart/form-data` with JWT.
+3. **Backend → Database**: Creates an "Activity" log (status: 'processing').
+4. **Backend → AI Service**: Streams PDF via internal Docker network.
+5. **AI Service**: Runs OCR/Table parsing -> Returns JSON.
+6. **Backend → Database**: Updates Activity (status: 'success').
+7. **Backend → Frontend**: Returns final JSON.
 
 ---
 
-## Backend (Node.js / Express)
+## 🛠 2. Technology Stack (The "Pin-to-Pin" Tech)
 
-### Key files
-| File | Purpose |
-|------|---------|
-| `server.js` | Entry point, Express setup |
-| `src/routes/authRoutes.js` | Auth endpoints |
-| `src/routes/documentRoutes.js` | Upload + Word export |
-| `src/routes/activityRoutes.js` | History CRUD |
-| `src/controllers/authController.js` | Register (no token), login, logout, profile |
-| `src/controllers/documentController.js` | OCR upload, Word download |
-| `src/controllers/activityController.js` | getUserActivities + deleteActivity |
-| `src/models/User.js` | User model (Sequelize) |
-| `src/models/Activity.js` | Activity model (Sequelize) |
-| `src/models/Session.js` | Token blacklist (Sequelize) |
-| `src/middleware/authMiddleware.js` | JWT verification |
-| `src/services/aiService.js` | HTTP client to ai-service |
+### Frontend (React 19 + Vite)
+- **Virtual DOM**: React handles UI updates efficiently by only re-rendering changed elements.
+- **Vite**: Modern builder using native ES modules for instant Hot Module Replacement (HMR).
+- **Core Hooks**: `useState`, `useEffect`, `useContext` (for `AuthContext`).
+- **Axios Interceptors**: Automatically injects `Authorization: Bearer <token>` into every request.
+- **Routing**: `react-router-dom v6` with `ProtectedRoute` wrappers.
 
-### Activity endpoints
-- `GET /api/activities` — user's history (auth required)
-- `DELETE /api/activities/:id` — delete specific record (auth required, user-scoped)
+### Backend (Node.js + Express)
+- **Runtime**: Node.js (Asynchronous, Non-blocking I/O).
+- **Middleware Pipeline**: 
+  - `authMiddleware.js`: Verifies JWT HMAC SHA256 signatures.
+  - `uploadMiddleware.js`: Uses **Multer** to handle file storage/buffering.
+- **Security**: 
+  - **JWT (JSON Web Tokens)**: Stateless authentication.
+  - **Bcrypt**: Password hashing with a cost factor of 10.
+- **ORM**: **Sequelize** for PostgreSQL interaction, preventing SQL injection.
 
-### Dependencies (package.json)
-- `bcryptjs`, `jsonwebtoken`, `form-data` — were missing, now added
-- `react-router-dom` — was missing from frontend, now added
-- Both Dockerfiles use `npm install` (not `npm ci`) to resolve fresh
+### AI Service (Python 3.10 + FastAPI)
+- **FastAPI**: High-performance ASGI framework with Pydantic validation.
+- **Uvicorn**: Lightning-fast ASGI server for handling concurrent OCR tasks.
+- **OCR Engine**: **PaddleOCR (PP-OCRv5)**. 
+  - *Stages*: Detection (ResNet) -> Classification -> Recognition (Transformer).
+- **Hybrid Logic**: Uses `PyMuPDF` (Native Text) first; falls back to OCR if words < 12.
+- **Table Parsing**: **Camelot** for structural table extraction.
+- **Doc Generation**: `python-docx` for MS Word reconstruction.
 
----
-
-## AI Service (FastAPI / PaddleOCR)
-
-### Key files
-| File | Purpose |
-|------|---------|
-| `app/main.py` | FastAPI app, endpoints, SHA-256 file cache, run_in_threadpool |
-| `app/config.py` | Config (DPI=300, MAX_SIDE=3000, preprocessing=True) |
-| `app/services/document_services.py` | Orchestrates native + OCR extraction |
-| `app/services/word_export_service.py` | PDF → Word conversion |
-| `app/ocr/pdf_processor.py` | PDF → image conversion (fitz) |
-| `app/ocr/ocr_engine.py` | PaddleOCR wrapper with preprocessing + deskew |
-| `app/ocr/native_text_extractor.py` | Native text via PyMuPDF |
-| `app/ocr/table_parser.py` | Table extraction |
-
-### OCR Performance Improvements
-- `run_in_threadpool()` — OCR and Word export run in thread pool, keeps FastAPI event loop free
-- SHA-256 file hash cache (`_ocr_cache`) — identical files skip re-processing (max 50 entries, FIFO eviction)
-- `OCR_FALLBACK_DPI=200` (docker default) — DPI for rendering scanned pages
-- `OCR_MAX_SIDE=1600` (docker default) — prevents excessive memory on large scans
-- `OCR_ENABLE_PREPROCESSING=False` (docker default) — set to True to enable grayscale/denoise/Otsu/deskew
-- `OCR_DET_MODEL=PP-OCRv5_mobile_det` — lighter detection model, reduces RAM vs server model
-- `use_doc_orientation_classify=False` + `use_doc_unwarping=False` — disables heavy pipeline models (PP-LCNet, UVDoc)
-- Fallback PaddleOCR init if version doesn't support new kwargs
-- `gc.collect()` + page image deletion after each page OCR (peak memory management)
-
-### Scanned PDF flow
-1. `extract_pdf_text_blocks()` — try native text extraction
-2. If page has < 12 words or < 60 alnum chars → trigger OCR
-3. Convert page to PNG at 300 DPI
-4. Optionally preprocess (grayscale → denoise → Otsu threshold → deskew)
-5. Run PaddleOCR on both raw and preprocessed; pick best result by alnum char count
-6. If native text is sparse (< 60 alnum chars), always prefer OCR result
+### Database (PostgreSQL)
+- **ACID Compliance**: Ensures data integrity and reliable transactions.
+- **JSONB Support**: Potential for storing unstructured OCR blobs.
+- **Relational Models**: `User`, `Activity` (History), `Session` (Blacklist).
 
 ---
 
-## Frontend (React + Vite)
+## 📂 3. Folder Structure & Key Files
 
-### Design policy
-The application uses a **professional light theme** (White & Sky Blue). 
-- Primary background: #f8fafc (Light grey/white)
-- Primary accent: #0ea5e9 (Sky Blue)
-- Text contrast: High contrast dark blue-grey for readability.
-- Components: Soft shadows and rounded corners (24px for cards, 12px for smaller units).
-
-### Routes
-| Path | Component | Protected |
-|------|-----------|-----------|
-| `/` | `Home` (OCR extractor) | ✅ |
-| `/upload` | `Upload` (same as Home, uses UploadBox + ResultBox) | ✅ |
-| `/history` | `History` | ✅ |
-| `/login` | `Login` | ❌ |
-| `/register` | `Register` | ❌ |
-| `/forgot-password` | `ForgotPassword` | ❌ |
-
-### Key components
-| File | Purpose |
-|------|---------|
-| `context/AuthContext.jsx` | Auth state; register no longer stores token |
-| `components/ProtectedRoute.jsx` | Redirect to /login if not authenticated |
-| `components/Navbar.jsx` | Added Dashboard + History nav links (`.navbar-nav-link`) |
-| `components/UploadBox.jsx` | File upload with loading/error states (unchanged) |
-| `components/ResultBox.jsx` | OCR result display + Word download (unchanged) |
-| `components/Loader.jsx` | Simple loading text (minimal fix) |
-| `pages/Home.jsx` | OCR extractor with UploadBox + ResultBox (unchanged) |
-| `pages/Upload.jsx` | Now wired up — uses same UploadBox + ResultBox as Home |
-| `pages/History.jsx` | Activity list with per-record delete button |
-| `pages/Login.jsx` | Shows `.auth-info` success banner when coming from register |
-| `pages/Register.jsx` | Redirects to `/login` with `state.registered=true` on success |
-| `services/api.js` | Added `deleteActivity(id)` |
-
-### New CSS classes added (appended to main.css, nothing removed)
-- `.navbar-nav-link` — nav links in navbar
-- `.activity-header-right` — flex container for badge + delete button
-- `.delete-activity-btn` — trash icon button on history cards
-
----
-
-## Environment Variables
-
-### backend/.env
-```
-PORT=5000
-AI_SERVICE_URL=http://ai-service:8000
-JWT_SECRET=<change-in-production>
-JWT_EXPIRES_IN=24h
-```
-
-### frontend/.env
-```
-VITE_API_URL=http://localhost:5000
+```text
+ocr-document-system/
+├── frontend/ (React SPA)
+│   ├── src/
+│   │   ├── context/AuthContext.jsx    # Global Auth State
+│   │   ├── services/api.js            # Axios Central Config
+│   │   ├── components/UploadBox.jsx   # File Upload UI
+│   │   └── components/ResultBox.jsx   # OCR Display Logic
+├── backend/ (Node.js API)
+│   ├── server.js                      # Entry Point
+│   ├── src/
+│   │   ├── middleware/authMiddleware.js # JWT Sentinel
+│   │   ├── models/User.js             # DB Schema
+│   │   ├── services/aiService.js      # Bridge to Python
+│   │   └── controllers/document.js    # Upload Orchestration
+├── ai-service/ (Python AI)
+│   ├── app/
+│   │   ├── main.py                    # FastAPI Routes + SHA-256 Cache
+│   │   ├── services/ocr_logic.py      # Vision Pipeline
+│   │   └── ocr/native_extractor.py    # PyMuPDF Logic
+├── docker-compose.yml                 # Multi-container Orchestration
+└── ai_context.md                      # This Master Context
 ```
 
 ---
 
-## Database Storage (PostgreSQL)
-
-The system uses **PostgreSQL** for persistent storage via **Sequelize ORM**.
-- All user data, activity logs, and session blacklists are persisted in the `ocr_system` database.
-- Database runs containerized alongside services in Docker.
+## 🔐 4. Authentication & Security Nuances
+- **JWT Statelessness**: The server does NOT store sessions. It only verifies the cryptographic signature of the token provided by the client. This allows for horizontal scaling.
+- **Token Storage**: Stored in `localStorage` on the frontend.
+- **Password Security**: Never stored in plain text. Bcrypt hashes are irreversible.
 
 ---
 
-## Docker
+## 🐳 5. Containerization Details
+- **Networking**: Bridge network allows services to communicate via hostnames (e.g., `http://ai-service:8000`).
+- **Internal DNS**: Docker's embedded DNS server resolves container names to internal IPs.
+- **Persistence**: PostgreSQL uses a Docker **Volume** to ensure data survives container restarts.
 
-```bash
-docker-compose down && docker-compose up --build
-```
+---
 
-Both Dockerfiles use `npm install` to pick up all dependencies.
+## 📈 6. Industry Perspective & Design Patterns
+1. **Separation of Concerns (SoC)**: UI, Business Logic, and Heavy Computation are decoupled.
+2. **Event-Loop Efficiency**: Node.js handles I/O while Python handles CPU-bound OCR tasks.
+3. **Observability**: Structured logs in every service for debugging production flows.
+4. **Resiliency**: Timeouts and retries are implemented in the Backend -> AI Service bridge.
 
-### Healthcheck & startup order
-- `ai-service` has a healthcheck (`GET /`, interval 30s, start_period 120s)
-- `backend` uses `condition: service_healthy` — won't start until AI service is ready
-- `ai-service` has `mem_limit: 3g` to prevent OOM kills (exit code 137)
-- Mobile OCR model + disabled pipeline steps keep memory usage low
+---
+
+## 🚀 7. Environment & Setup (The "AI Copy-Paste" Environment)
+- **Port Mapping**: 5173 (FE), 5000 (BE), 8000 (AI), 5432 (DB).
+- **Node Version**: 18+
+- **Python Version**: 3.10+
+- **Commands**: 
+  - Root: `docker-compose up --build`
+  - Backend: `npm install && npm run start`
+  - AI Service: `pip install -r requirements.txt && uvicorn app.main:app`
+
+---
+*End of Master Context*
