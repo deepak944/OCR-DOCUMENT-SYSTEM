@@ -10,7 +10,9 @@ TextTrack AI utilizes **PostgreSQL**, a world-class relational database, to ensu
 ### 2. Sequelize ORM (Object-Relational Mapping)
 - **Translation Layer**: Sequelize allows us to write database logic in pure JavaScript. 
 - **Security**: It automatically santizes inputs, protecting the system from **SQL Injection** attacks.
-- **Model Synchronization**: When the application starts, Sequelize checks if the database tables exist (`sequelize.sync()`). If we add a new column to a model in the code, Sequelize can update the database table automatically without us writing manual SQL `ALTER` commands.
+- **Model Synchronization**: Sequelize checks if the database tables exist (`sequelize.sync()`). 
+- **ACID Compliance**: Postgres ensures Atomicity, Consistency, Isolation, and Durability, making it the industry standard for financial and document management systems where data loss is unacceptable.
+- **JSONB Support**: We leverage JSONB for storing raw OCR output, allowing for fast, indexed querying of semi-structured document data.
 
 ## 📂 Detailed Schema Design
 

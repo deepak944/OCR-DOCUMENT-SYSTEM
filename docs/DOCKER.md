@@ -8,6 +8,11 @@ The entire system is containerized for consistent deployment across any environm
 3. **ocr-ai-service**: Python 3.10 runtime with PaddleOCR dependencies.
 4. **ocr-postgres**: PostgreSQL 15 database.
 
+## 🌉 Internal Networking (The Bridge)
+Docker creates a virtual software-defined network for these services. 
+- **DNS Resolution**: The Node.js backend connects to the AI service using the hostname `http://ai-service:8000`. Docker's internal DNS translates this to the container's private IP.
+- **Volume Persistence**: Database data is stored in a **Docker Volume**, ensuring that even if you shut down every container, your user history and credentials remain safe on the host hard drive.
+
 ## Quick Start (Official Onboarding)
 The recommended way to run the project is using Docker Compose.
 

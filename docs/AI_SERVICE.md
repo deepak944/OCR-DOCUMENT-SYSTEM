@@ -15,9 +15,11 @@ The AI Service is a high-performance Python microservice built for document inte
 
 ### 3. PaddleOCR Engine (PP-OCRv5)
 - **Multi-Stage Pipeline**: 
-  - **Detection**: Locates text boxes in the document image using a mobile-optimized ResNet.
-  - **Classification**: Detects text orientation (e.g., rotated 90 degrees) and fixes it.
-  - **Recognition**: Converts the detected pixels into actual characters using a Deep Learning transformer model.
+- **Detection**: Locates text box coordinates using a mobile-optimized ResNet-based vision model.
+- **Classification**: A "Text Direction" model detects orientation (e.g., upside down) and deskews the image.
+- **Recognition**: The character recognition stage uses a Deep Learning Transformer model (CRNN/SVTR) to convert pixels into text. 
+> [!TIP]
+> **Industry Note**: Python is chosen for this service because it is the global standard for ML/AI. Separating the AI into its own microservice allows for independent scaling of GPU/CPU resources without affecting the lightweight Node.js API Gateway.
 
 ### 4. Hybrid Extraction Logic
 - **Native vs. OCR**: The service is smart. It first scans for "Native Text" (selectable text in a PDF) using `PyMuPDF`. 
