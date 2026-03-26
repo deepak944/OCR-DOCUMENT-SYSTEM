@@ -5,8 +5,8 @@ Last updated: 2026-03-18
 ## Project Overview
 
 Full-stack OCR document processing system with three services:
-- `frontend/` — React + Vite SPA (existing design preserved)
-- `backend/` — Node.js / Express REST API
+- `frontend/` — React + Vite SPA (Clean light theme: White & Sky Blue)
+- `backend/` — Node.js / Express REST API (PostgreSQL + Sequelize)
 - `ai-service/` — Python FastAPI OCR engine (PaddleOCR)
 
 All three run in Docker via `docker-compose.yml`.
@@ -49,9 +49,9 @@ Browser → frontend (port 5173)
 | `src/controllers/authController.js` | Register (no token), login, logout, profile |
 | `src/controllers/documentController.js` | OCR upload, Word download |
 | `src/controllers/activityController.js` | getUserActivities + deleteActivity |
-| `src/models/User.js` | In-memory user store |
-| `src/models/Activity.js` | In-memory activity store (create, findByUserId, deleteById, deleteByUserId) |
-| `src/models/Session.js` | Token blacklist |
+| `src/models/User.js` | User model (Sequelize) |
+| `src/models/Activity.js` | Activity model (Sequelize) |
+| `src/models/Session.js` | Token blacklist (Sequelize) |
 | `src/middleware/authMiddleware.js` | JWT verification |
 | `src/services/aiService.js` | HTTP client to ai-service |
 
@@ -104,8 +104,11 @@ Browser → frontend (port 5173)
 ## Frontend (React + Vite)
 
 ### Design policy
-The existing visual design (colors, fonts, layout, component structure) is preserved exactly.
-Only logic, functionality, and minimal additive CSS classes are changed.
+The application uses a **professional light theme** (White & Sky Blue). 
+- Primary background: #f8fafc (Light grey/white)
+- Primary accent: #0ea5e9 (Sky Blue)
+- Text contrast: High contrast dark blue-grey for readability.
+- Components: Soft shadows and rounded corners (24px for cards, 12px for smaller units).
 
 ### Routes
 | Path | Component | Protected |
@@ -157,12 +160,11 @@ VITE_API_URL=http://localhost:5000
 
 ---
 
-## In-Memory Storage (temporary)
+## Database Storage (PostgreSQL)
 
-All data resets on restart. To persist later:
-- Replace `UserStore` with DB model (MongoDB/Postgres)
-- Replace `ActivityStore` with DB model
-- Replace `SessionStore` blacklist with Redis or DB table
+The system uses **PostgreSQL** for persistent storage via **Sequelize ORM**.
+- All user data, activity logs, and session blacklists are persisted in the `ocr_system` database.
+- Database runs containerized alongside services in Docker.
 
 ---
 
