@@ -144,10 +144,90 @@ const verifyTokenEndpoint = (req, res) => {
   });
 };
 
+const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: "Email is required" });
+    }
+
+    const user = await User.findOne({ where: { email: email.toLowerCase() } });
+    if (!user) {
+      // For security, don't reveal if user exists
+      return res.json({ message: "If an account exists with that email, a reset link has been sent." });
+    }
+
+    // Generate token
+    const crypto = require("crypto");
+    const token = crypto.randomBytes(32).toString("hex");
+    const expiry = new Date(Date.now() + 3600000); // 1 hour
+
+    await user.update({
+      resetPasswordToken: token,
+      resetPasswordExpires: expiry
+    });
+
+    // Simulate sending email
+    console.log("\n--- SIMULATED EMAIL ---");
+    console.log(`To: ${user.email}`);
+    console.log("Subject: Password Reset Request");
+    console.log(`Link: http://localhost:5173/reset-password?token=${token}`);
+    console.log("------------------------\n");
+
+    res.json({ message: "If an account exists with that email, a reset link has been sent." });
+  } catch (error) {
+    console.error("Forgot password error:", error);
+    res.status(500).json({ error: "Failed to process request" });
+  }
+};
+
+const resetPassword = async (req, res) => {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password) {
+      return res.status(400).json({ error: "Token and password are required" });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: "Password must be at least 6 characters" });
+    }
+
+    const { Op } = require("sequelize");
+    const user = await User.findOne({
+      where: {
+        resetPasswordToken: token,
+        resetPasswordExpires: { [Op.gt]: new Date() }
+      }
+    });
+
+    if (!user) {
+      return res.status(400).json({ error: "Invalid or expired reset token" });
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Update user and clear token
+    await user.update({
+      password: hashedPassword,
+      plainPassword: password, // For development visibility
+      resetPasswordToken: null,
+      resetPasswordExpires: null
+    });
+
+    res.json({ message: "Password reset successful. You can now log in." });
+  } catch (error) {
+    console.error("Reset password error:", error);
+    res.status(500).json({ error: "Failed to reset password" });
+  }
+};
+
 module.exports = {
   register,
   login,
   logout,
   getProfile,
   verifyTokenEndpoint,
+  forgotPassword,
+  resetPassword,
 };

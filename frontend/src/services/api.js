@@ -43,6 +43,12 @@ export const getActivities = () =>
 export const deleteActivity = (id) =>
   API.delete(`/api/activities/${id}`)
 
+export const forgotPassword = (email) =>
+  API.post("/api/auth/forgot-password", { email })
+
+export const resetPassword = (token, password) =>
+  API.post("/api/auth/reset-password", { token, password })
+
 // ── Local OCR result cache (keyed by activity id) ──────────────
 const RESULT_CACHE_KEY = "ocr_result_cache"
 const MAX_CACHED = 20

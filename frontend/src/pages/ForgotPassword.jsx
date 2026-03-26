@@ -11,11 +11,17 @@ const ForgotPassword = () => {
     e.preventDefault();
     setLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const { forgotPassword } = await import("../services/api");
+      await forgotPassword(email);
       setSubmitted(true);
+    } catch (err) {
+      console.error("Forgot password error:", err);
+      // Still show the success screen to prevent email enumeration
+      setSubmitted(true);
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   if (submitted) {
@@ -41,9 +47,6 @@ const ForgotPassword = () => {
         <h1 className="auth-title">Reset Password</h1>
         <p className="auth-subtitle">Enter your email to receive reset instructions</p>
 
-        <div className="auth-info">
-          <strong>Note:</strong> Password reset functionality will be implemented when database integration is added.
-        </div>
 
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">

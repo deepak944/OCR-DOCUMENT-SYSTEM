@@ -125,7 +125,7 @@ function History() {
                     )}
                   </div>
 
-                  {activity.action === "OCR_PROCESS" && activity.status === "success" && (
+                  {(activity.action === "OCR_PROCESS" || activity.action === "WORD_EXPORT") && activity.status === "success" && (
                     <div className="activity-footer">
                       <button
                         className="view-details-btn"

@@ -1,0 +1,47 @@
+# Backend Documentation: TextTrack AI
+
+The backend is a robust Node.js/Express service that acts as the core orchestrator, managing users, securing data, and bridging the frontend with the AI processing engine.
+
+## 🛠 Technology Stack Deep Dive
+
+### 1. Node.js & Express.js
+- **Asynchronous I/O**: We use Node.js because it's non-blocking, which is crucial when handling multiple concurrent file uploads and waiting for the AI microservice to respond.
+- **Express**: Provides the routing framework and middleware support (CORS, JSON parsing, logging).
+
+### 2. Security & Authentication (JWT)
+- **JsonWebToken (JWT)**: When a user logs in, the backend generates a signed token. This token contains the user's ID.
+- **Why JWT?**: It allows for "Stateless Authentication," meaning the server doesn't need to store session IDs in memory; it simply verifies the signature of the token provided by the client.
+- **Auth Middleware**: Located in `src/middleware/authMiddleware.js`. It intercepts requests to protected routes, decodes the token, and attaches the `user` object to the request.
+
+### 3. Database Management (Sequelize & PostgreSQL)
+- **PostgreSQL**: A powerful relational database chosen for its reliability and support for UUIDs and complex relationships.
+- **Sequelize ORM**: We use an Object-Relational Mapper to interact with the database using JavaScript classes instead of raw SQL. This prevents SQL injection attacks and makes the code cleaner.
+- **Syncing**: The `sequelize.sync({ alter: true })` command ensures that the database tables always match the JavaScript models automatically.
+
+### 4. API Orchestration
+- **File Interception**: Using `multer`, the backend accepts file uploads, temporarily stores them, and then streams them to the AI service.
+- **AI Integration**: The `src/services/aiService.js` uses `axios` to communicate with the Python service. It handles timeouts and retries to ensure reliable document processing.
+
+## 📂 Core Logic Flow
+
+1. **Registration**: Hashes the password using `bcrypt` (10 rounds) and saves the user to PostgreSQL.
+2. **Document Processing**: 
+   - Receives PDF via `POST /upload`.
+   - Validates the user's JWT.
+   - Forwards the PDF to the AI service.
+   - Receives the JSON results.
+   - Logs the `OCR_PROCESS` activity in the database.
+   - Returns the JSON to the frontend.
+
+## 📄 API Specifications
+Detailed endpoint documentation can be found in the [Master README](../README.md#📄-key-api-inventory).
+
+## Development
+To start the backend locally:
+```bash
+cd backend
+npm install
+# Configure .env with DB credentials
+npm run dev
+```
+Access via: `http://localhost:5000`

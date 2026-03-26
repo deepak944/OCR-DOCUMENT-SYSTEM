@@ -1,204 +1,65 @@
-# OCR Document System
+# TextTrack AI: Professional OCR Document System
 
-Full-stack OCR app with authentication and user management to process PDF documents and return:
-- extracted text
-- extracted tables
-- extracted embedded images
-- downloadable Word (`.docx`) output with text, tables, and images
+TextTrack AI is an industry-grade, full-stack document intelligence platform. It seamlessly extracts text, tables, and images from both digital and scanned PDFs, transforming them into structured JSON and professional Word documents.
 
-## Stack
-- `frontend`: React + Vite + React Router (`http://localhost:5173`)
-- `backend`: Node.js + Express + JWT + bcrypt (`http://localhost:5000`)
-- `ai-service`: FastAPI + PaddleOCR + PyMuPDF (`http://localhost:8000`)
+---
 
-## Features
+## 🚀 How to Start (Onboarding Guide)
 
-### Authentication & User Management
-- User registration and login with JWT authentication
-- Secure password hashing (bcrypt, 10 rounds)
-- Protected routes requiring authentication
-- 24-hour session management
-- User activity tracking and history
-- Register redirects to login page (no auto-login)
+Whether you are a developer looking to contribute or a user trying to run the system, here is how to get started.
 
-### OCR Processing
-- Native text extraction from digital PDFs
-- Scanned PDF support via PaddleOCR fallback
-- Embedded image extraction
-- Table extraction
-- Word (.docx) export with text, tables, and images
-- SHA-256 file hash cache (skips re-processing identical files)
-- Memory-safe mobile OCR model by default
+### Option A: Running via GitHub (Stay in Sync)
+1. **Clone the Project**:
+   ```bash
+   git clone https://github.com/deepak944/OCR-DOCUMENT-SYSTEM.git
+   cd OCR-DOCUMENT-SYSTEM
+   ```
+2. **Start Services**:
+   ```bash
+   docker-compose up --build
+   ```
+3. **Stay Updated**:
+   To pull the latest improvements from the team:
+   ```bash
+   git pull origin main
+   ```
 
-## API Flow
-1. User registers → redirected to login page
-2. User logs in → receives JWT token
-3. Frontend uploads PDF to `POST /upload` (with auth token)
-4. Backend verifies token and forwards to AI service `POST /process-document`
-5. AI service extracts text/tables/images and returns JSON
-6. Backend tracks user activity
-7. Frontend requests Word file via `POST /download-word` (with auth token)
-8. User views activity history at `/history`
+### Option B: Running without GitHub (Local Files)
+If you have the project files directly on your machine:
+1. Open a terminal in the project root folder.
+2. Ensure **Docker Desktop** is running.
+3. Run the following command:
+   ```bash
+   docker-compose up --build
+   ```
+4. Access the system at `http://localhost:5173`.
 
-## Output Shape
-`POST /upload` returns:
+---
 
-```json
-{
-  "message": "OCR processing completed",
-  "data": {
-    "pages": [
-      {
-        "page_number": 1,
-        "blocks": [
-          {
-            "text": "Example",
-            "confidence": 0.99,
-            "bbox": [[10, 20], [100, 20], [100, 60], [10, 60]]
-          }
-        ]
-      }
-    ],
-    "tables": [],
-    "images": [
-      {
-        "page_number": 1,
-        "image_index": 1,
-        "xref": 24,
-        "extension": "png",
-        "mime_type": "image/png",
-        "width": 1024,
-        "height": 768,
-        "size_bytes": 45678,
-        "inline_preview_available": true,
-        "data_url": "data:image/png;base64,..."
-      }
-    ]
-  }
-}
-```
+## 🛠 The Architecture (Brief Overview)
 
-## Docker Setup (Recommended)
-Prerequisite: Docker Desktop running.
+TextTrack AI consists of four primary layers that work in perfect harmony:
 
-```bash
-docker compose up --build
-```
+1. **The Interface (Frontend)**: A React-based SPA that provides a smooth, light-themed user experience. It communicates with the backend via secure API calls.
+2. **The Orchestrator (Backend)**: A Node.js/Express server that manages users (PostgreSQL), handles security (JWT), and coordinates the OCR workflow.
+3. **The Brain (AI Service)**: A Python FastAPI microservice that runs PaddleOCR to "read" your documents and `python-docx` to recreate them.
+4. **The Storage (Database)**: A PostgreSQL instance that keeps your history and credentials safe.
 
-Open:
-- Frontend: `http://localhost:5173`
-- Backend health: `http://localhost:5000/health`
-- AI service health: `http://localhost:8000/`
+---
 
-Stop:
+## 📚 Deep Dive Documentation
 
-```bash
-docker compose down
-```
+For a comprehensive explanation of every file, tech, and API in each service, please read these dedicated guides in the `docs/` directory:
 
-### Docker healthcheck
-The backend waits for the AI service to pass its healthcheck before starting. This prevents `socket hang up` errors on cold boot. The AI service has a 120-second start period to allow model loading.
+- 🖥️ **[Frontend Technical Details](./docs/FRONTEND.md)**: Deep dive into React, Vite, and Styling.
+- ⚙️ **[Backend Technical Details](./docs/BACKEND.md)**: Deep dive into Node.js, JWT, and API Orchestration.
+- 🧠 **[AI Service Technical Details](./docs/AI_SERVICE.md)**: Deep dive into FastAPI, **Uvicorn**, and OCR Logic.
+- 🗄️ **[Database & Storage Details](./docs/DATABASE.md)**: Deep dive into PostgreSQL and Sequelize Models.
+- 🐳 **[Docker & Deployment Guide](./docs/DOCKER.md)**: Deep dive into containerization and networking.
 
-### Memory
-The AI service is limited to `3g` RAM. It uses the mobile OCR detection model (`PP-OCRv5_mobile_det`) and disables heavy pipeline steps (document orientation classifier, unwarping) to stay within limits.
+---
 
-## Local Setup (Without Docker)
-
-### 1) AI service
-```bash
-cd ai-service
-pip install -r requirements.txt
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-### 2) Backend
-```bash
-cd backend
-npm install
-copy .env.example .env
-npm run dev
-```
-
-### 3) Frontend
-```bash
-cd frontend
-npm install
-copy .env.example .env
-npm run dev
-```
-
-## Environment Variables
-
-Backend (`backend/.env`):
-```
-PORT=5000
-AI_SERVICE_URL=http://localhost:8000
-JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
-JWT_EXPIRES_IN=24h
-```
-
-Frontend (`frontend/.env`):
-```
-VITE_API_URL=http://localhost:5000
-```
-
-AI service (via Docker env or shell):
-```
-OCR_CPU_THREADS=2
-OCR_FALLBACK_DPI=200
-OCR_MAX_SIDE=1600
-OCR_ENABLE_PREPROCESSING=false
-OCR_DET_MODEL=PP-OCRv5_mobile_det
-```
-
-## Key Endpoints
-
-### Authentication
-```
-POST   /api/auth/register      Register new user (returns user, no token)
-POST   /api/auth/login         Login and get JWT token
-POST   /api/auth/logout        Logout (requires auth)
-GET    /api/auth/profile       Get user profile (requires auth)
-GET    /api/auth/verify        Verify token validity (requires auth)
-```
-
-### Activities
-```
-GET    /api/activities         Get user activity history (requires auth)
-DELETE /api/activities/:id     Delete a specific activity (requires auth)
-```
-
-### Documents (Protected)
-```
-POST   /upload                 OCR JSON output (requires auth)
-POST   /download-word          Downloads .docx (requires auth)
-GET    /health                 Backend health check
-```
-
-### AI Service
-```
-GET    /                       Service health
-POST   /process-document       Text/tables/images extraction
-POST   /convert-pdf-to-word    Word generation
-```
-
-## Troubleshooting
-
-### AI service exits with code 137 (OOM)
-Increase Docker Desktop memory limit to at least 4 GB. The `mem_limit: 3g` in docker-compose.yml requires Docker Desktop to have enough headroom.
-
-### TLS handshake timeout during build
-This is a Docker Desktop network issue, not a code issue.
-1. Restart Docker Desktop
-2. Run `docker pull node:20-alpine` manually
-3. Set DNS to `8.8.8.8` / `1.1.1.1` in Docker Engine settings
-
-### socket hang up / ECONNREFUSED
-The backend retries AI service requests with exponential backoff (3 retries, 2s base). If it still fails, check `docker compose logs ai-service` — the service may still be loading models.
-
-### uvicorn not found
-```bash
-docker compose down
-docker compose build --no-cache ai-service
-docker compose up -d
-```
+## 📦 File Tech & API Summary
+- **Frontend (`/frontend`)**: Powered by `Vite`. Communicates using `Axios`.
+- **Backend (`/backend`)**: Powered by `Node.js`. Relies on `Sequelize` for database operations.
+- **AI Service (`/ai-service`)**: Powered by `FastAPI` & `Uvicorn`. Uses `PaddleOCR` for high-precision extraction.
