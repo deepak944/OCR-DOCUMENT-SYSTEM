@@ -5,13 +5,16 @@ const { User } = require('../models');
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID || 'dummy_id',
     clientSecret: process.env.GOOGLE_CLIENT_SECRET || 'dummy_secret',
-    callbackURL: "/api/auth/google/callback"
+    callbackURL: process.env.GOOGLE_CALLBACK_URL || "/api/auth/google/callback",
+    proxy: true
   },
   async (accessToken, refreshToken, profile, done) => {
     try {
       // Extract Google Profile info
       const { id, emails, displayName } = profile;
       const email = emails[0].value;
+
+      console.log(`[Google Auth] Received Profile: ${email} (ID: ${id})`);
 
       // Find or Create user
       let user = await User.findOne({ where: { googleId: id } });

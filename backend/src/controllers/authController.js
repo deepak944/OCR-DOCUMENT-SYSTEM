@@ -19,6 +19,10 @@ const register = async (req, res) => {
       return res.status(400).json({ error: "Invalid email format" });
     }
 
+    if (!email.toLowerCase().endsWith("@gmail.com")) {
+      return res.status(400).json({ error: "Currently, only personal Gmail accounts (@gmail.com) are allowed." });
+    }
+
     // Check if user exists
     const existingUser = await User.findOne({ where: { email: email.toLowerCase() } });
     if (existingUser) {
@@ -62,6 +66,10 @@ const login = async (req, res) => {
     const user = await User.findOne({ where: { email: email.toLowerCase() } });
     if (!user) {
       return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    if (!email.toLowerCase().endsWith("@gmail.com")) {
+      return res.status(401).json({ error: "Unauthorized: Domain not allowed." });
     }
 
     // Verify password
@@ -259,7 +267,15 @@ const googleCallback = async (req, res) => {
   try {
     const user = req.user;
     if (!user) {
+      console.error("[Google Auth] Callback failed: No user object found on request.");
       return res.redirect("http://localhost:5173/login?error=Google authentication failed");
+    }
+
+    console.log(`[Google Auth] Successfully authenticated user: ${user.email}`);
+
+    if (!user.email.toLowerCase().endsWith("@gmail.com")) {
+      console.warn(`[Google Auth] Blocking non-gmail account: ${user.email}`);
+      return res.redirect("http://localhost:5173/login?error=Only @gmail.com accounts are permitted.");
     }
 
     const { generateToken } = require("../utils/jwt");
@@ -267,6 +283,8 @@ const googleCallback = async (req, res) => {
       userId: user.id,
       email: user.email,
     });
+
+    console.log(`[Google Auth] Token generated: ${token.substring(0, 10)}...`);
 
     const { Session } = require("../models");
     await Session.create({

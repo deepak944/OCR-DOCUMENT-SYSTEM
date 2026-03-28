@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import "../styles/auth.css";
@@ -14,12 +14,19 @@ const Login = () => {
   const justRegistered = location.state?.registered === true;
 
   // Handle Google Login token from URL
-  useState(() => {
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get("token");
+    const errorParam = params.get("error");
+
+    if (errorParam) {
+      setError(errorParam);
+    }
+
     if (token) {
+      console.log("Token received from Google login, saving...");
       localStorage.setItem("token", token);
-      // Wait for AuthContext to sync or just navigate
+      // Force a full page reload to root to ensure AuthContext picks up the new token
       window.location.href = "/";
     }
   }, []);
@@ -27,6 +34,12 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+
+    if (!email.toLowerCase().endsWith("@gmail.com")) {
+      setError("Only @gmail.com accounts are permitted to sign in.");
+      return;
+    }
+
     setLoading(true);
 
     try {

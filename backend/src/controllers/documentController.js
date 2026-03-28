@@ -48,6 +48,7 @@ exports.uploadDocument = async (req, res) => {
       fileName: req.file.originalname,
       fileSize: req.file.size,
       status: "success",
+      metadata: result, // Store the extracted OCR data
     });
 
     res.json({

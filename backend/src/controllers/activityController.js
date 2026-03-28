@@ -9,7 +9,7 @@ const getUserActivities = async (req, res) => {
       where: { userId },
       order: [['createdAt', 'DESC']],
       limit,
-      attributes: ['id', 'action', 'fileName', 'fileSize', 'status', 'error', 'createdAt'],
+      attributes: ['id', 'action', 'fileName', 'fileSize', 'status', 'error', 'metadata', 'createdAt'],
     });
 
     res.json({

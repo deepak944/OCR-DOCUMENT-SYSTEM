@@ -42,10 +42,12 @@ function History() {
   };
 
   const handleViewDetails = (activity) => {
-    const cached = getResultFromCache(activity.fileName);
+    // Prioritize results from the database, falling back to local cache
+    const resultToRestore = activity.metadata || getResultFromCache(activity.fileName)?.data;
+    
     navigate("/", {
       state: {
-        restoredResult: cached ? cached.data : null,
+        restoredResult: resultToRestore,
         restoredFileName: activity.fileName,
       },
     });
@@ -131,9 +133,9 @@ function History() {
                         className="view-details-btn"
                         onClick={() => handleViewDetails(activity)}
                       >
-                        {hasCached ? "👁 View Details" : "↩ Go to Dashboard"}
+                        {activity.metadata || hasCached ? "👁 View Details" : "↩ Go to Dashboard"}
                       </button>
-                      {!hasCached && (
+                      {(!activity.metadata && !hasCached) && (
                         <span className="no-cache-note">
                           Result not cached — re-upload to view extracted data
                         </span>

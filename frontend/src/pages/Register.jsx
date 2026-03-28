@@ -22,6 +22,11 @@ const Register = () => {
       return;
     }
 
+    if (!email.toLowerCase().endsWith("@gmail.com")) {
+      setError("Only personal Gmail accounts (@gmail.com) are allowed to register.");
+      return;
+    }
+
     if (password.length < 6) {
       setError("Password must be at least 6 characters");
       return;
