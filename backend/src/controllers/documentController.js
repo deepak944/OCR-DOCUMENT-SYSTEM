@@ -3,6 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const { processDocument, convertPdfToWord } = require("../services/aiService");
 const { Activity } = require("../models");
+const { archiveUploadedDocument } = require("../services/documentArchiveService");
 
 function removeDirIfEmpty(dirPath) {
   if (!dirPath || path.basename(dirPath) !== "uploads") {
@@ -41,6 +42,8 @@ exports.uploadDocument = async (req, res) => {
 
     const result = await processDocument(filePath);
 
+    const archiveInfo = archiveUploadedDocument(filePath, req.file.originalname);
+
     // Track activity
     await Activity.create({
       userId: req.user.id,
@@ -48,7 +51,10 @@ exports.uploadDocument = async (req, res) => {
       fileName: req.file.originalname,
       fileSize: req.file.size,
       status: "success",
-      metadata: result, // Store the extracted OCR data
+      metadata: {
+        documentData: result,
+        historyContext: archiveInfo,
+      },
     });
 
     res.json({

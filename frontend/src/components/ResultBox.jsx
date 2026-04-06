@@ -1,6 +1,11 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { downloadWordFile, saveActiveDocument } from "../services/api"
+import {
+  downloadExcelExport,
+  downloadWordFile,
+  downloadWordFromHistory,
+  saveActiveDocument,
+} from "../services/api"
 
 function sanitizeDocumentForAssistant(documentData) {
   if (!documentData || typeof documentData !== "object") {
@@ -13,6 +18,7 @@ function sanitizeDocumentForAssistant(documentData) {
     pages: Array.isArray(documentData.pages)
       ? documentData.pages.map((page) => ({
           page_number: page?.page_number,
+          text: typeof page?.text === "string" ? page.text : "",
           blocks: Array.isArray(page?.blocks)
             ? page.blocks
                 .map((block) => ({
@@ -20,6 +26,8 @@ function sanitizeDocumentForAssistant(documentData) {
                 }))
                 .filter((block) => block.text)
             : [],
+          tables: Array.isArray(page?.tables) ? page.tables : [],
+          metadata: page?.metadata && typeof page.metadata === "object" ? page.metadata : {},
         }))
       : [],
     tables: Array.isArray(documentData.tables) ? documentData.tables : [],
@@ -34,10 +42,19 @@ function sanitizeDocumentForAssistant(documentData) {
   }
 }
 
-function ResultBox({ result, processedFile, documentName, isLoading }) {
+function ResultBox({
+  result,
+  processedFile,
+  documentName,
+  isLoading,
+  restoredTimeline = [],
+  restoredActivityId = null,
+  canDownloadWordFromHistory = false,
+}) {
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState("text")
   const [isDownloading, setIsDownloading] = useState(false)
+  const [isDownloadingExcel, setIsDownloadingExcel] = useState(false)
   const [downloadError, setDownloadError] = useState("")
 
   const payload = result?.data || result
@@ -50,6 +67,17 @@ function ResultBox({ result, processedFile, documentName, isLoading }) {
         .join("\n\n")
     : ""
 
+  const getTimelineLabel = (action) => {
+    const labels = {
+      OCR_PROCESS: "OCR Processing",
+      WORD_EXPORT: "Word Export",
+      EXCEL_EXPORT: "Excel Export",
+      AI_CHAT: "AI Chat",
+    }
+
+    return labels[action] || action
+  }
+
   const getFileNameFromDisposition = (contentDisposition) => {
     if (!contentDisposition) return null
     const match = contentDisposition.match(/filename\*?=(?:UTF-8''|"?)([^";]+)/i)
@@ -57,25 +85,31 @@ function ResultBox({ result, processedFile, documentName, isLoading }) {
   }
 
   const handleDownload = async () => {
-    if (!processedFile) {
-      setDownloadError("Upload a PDF first, then download the Word file.")
-      return
-    }
-
     try {
       setIsDownloading(true)
       setDownloadError("")
 
-      const formData = new FormData()
-      formData.append("file", processedFile)
+      let response
+      let fallbackName
 
-      const response = await downloadWordFile(formData)
+      if (processedFile) {
+        const formData = new FormData()
+        formData.append("file", processedFile)
+        response = await downloadWordFile(formData)
+        fallbackName = `${processedFile.name.replace(/\.pdf$/i, "") || "document"}.docx`
+      } else if (canDownloadWordFromHistory && restoredActivityId) {
+        response = await downloadWordFromHistory(restoredActivityId)
+        fallbackName = `${(documentName || "document").replace(/\.pdf$/i, "") || "document"}.docx`
+      } else {
+        setDownloadError("Word download is available only when the original PDF is still linked to this history entry.")
+        return
+      }
+
       const contentType =
         response.headers["content-type"] ||
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
       const disposition = response.headers["content-disposition"]
       const downloadedName = getFileNameFromDisposition(disposition)
-      const fallbackName = `${processedFile.name.replace(/\.pdf$/i, "") || "document"}.docx`
       const blob = new Blob([response.data], { type: contentType })
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement("a")
@@ -91,6 +125,42 @@ function ResultBox({ result, processedFile, documentName, isLoading }) {
       setDownloadError(apiError || "Word download failed. Please try again.")
     } finally {
       setIsDownloading(false)
+    }
+  }
+
+  const handleExcelDownload = async () => {
+    if (!payload) {
+      setDownloadError("Upload a PDF first, then download the Excel file.")
+      return
+    }
+
+    try {
+      setIsDownloadingExcel(true)
+      setDownloadError("")
+
+      const resolvedDocumentName = documentName || processedFile?.name || "OCR Document"
+      const response = await downloadExcelExport(payload, resolvedDocumentName)
+      const contentType =
+        response.headers["content-type"] ||
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      const disposition = response.headers["content-disposition"]
+      const downloadedName = getFileNameFromDisposition(disposition)
+      const fallbackName = `${resolvedDocumentName.replace(/\.pdf$/i, "") || "document"}.xlsx`
+      const blob = new Blob([response.data], { type: contentType })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement("a")
+
+      link.href = url
+      link.download = downloadedName || fallbackName
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      const apiError = error?.response?.data?.error
+      setDownloadError(apiError || "Excel download failed. Please try again.")
+    } finally {
+      setIsDownloadingExcel(false)
     }
   }
 
@@ -154,6 +224,8 @@ function ResultBox({ result, processedFile, documentName, isLoading }) {
 
   if (!result) return null
 
+  const hasRestoredTimeline = Array.isArray(restoredTimeline) && restoredTimeline.length > 0
+
   return (
     <div className="result">
       <div className="resultHeader">
@@ -162,11 +234,36 @@ function ResultBox({ result, processedFile, documentName, isLoading }) {
           <button onClick={handleTalkWithAI} className="primaryBtn">
             Talk with AI
           </button>
+          <button onClick={handleExcelDownload} disabled={isDownloadingExcel}>
+            {isDownloadingExcel ? "Preparing Excel..." : "Download Excel"}
+          </button>
           <button onClick={handleDownload} disabled={isDownloading}>
             {isDownloading ? "Preparing..." : "Download Word"}
           </button>
         </div>
       </div>
+
+      {hasRestoredTimeline && (
+        <div className="restored-session-panel">
+          <div className="restored-session-header">
+            <strong>Restored session history</strong>
+            <span>{restoredTimeline.length} saved actions</span>
+          </div>
+          <div className="restored-session-list">
+            {restoredTimeline.map((entry) => (
+              <div key={entry.id} className="restored-session-item">
+                <div>
+                  <strong>{getTimelineLabel(entry.action)}</strong>
+                  {entry.summary && <p>{entry.summary}</p>}
+                  {entry.prompt && <p className="restored-session-chat">You: {entry.prompt}</p>}
+                  {entry.response && <p className="restored-session-chat">AI: {entry.response}</p>}
+                </div>
+                <span className={`status-badge status-${entry.status}`}>{entry.status}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="result-cards-row">
         <div className="result-card">

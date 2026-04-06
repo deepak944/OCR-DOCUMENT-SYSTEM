@@ -65,6 +65,34 @@ def _prefer_ocr_blocks(native_blocks, ocr_blocks):
     return native_blocks
 
 
+def _page_text(blocks):
+    return "\n".join(
+        str(block.get("text", "")).strip()
+        for block in (blocks or [])
+        if isinstance(block, dict) and str(block.get("text", "")).strip()
+    )
+
+
+def _tables_by_page(tables):
+    grouped = {}
+    for table in tables or []:
+        page_number = table.get("page_number") if isinstance(table, dict) else None
+        if page_number is None:
+            continue
+        grouped.setdefault(page_number, []).append(table)
+    return grouped
+
+
+def _images_by_page(images):
+    grouped = {}
+    for image in images or []:
+        page_number = image.get("page_number") if isinstance(image, dict) else None
+        if page_number is None:
+            continue
+        grouped.setdefault(page_number, []).append(image)
+    return grouped
+
+
 def process_document(pdf_path):
     pages = extract_pdf_text_blocks(pdf_path)
     request_dir = None
@@ -108,7 +136,7 @@ def process_document(pdf_path):
             logging.warning("OCR failed on all pages for %s; returning partial response", pdf_path)
 
         try:
-            tables = extract_tables(pdf_path)
+            tables = extract_tables(pdf_path, results)
         except Exception as exc:
             logging.warning("Table extraction failed for %s: %s", pdf_path, exc)
             tables = []
@@ -119,10 +147,40 @@ def process_document(pdf_path):
             logging.warning("Image extraction failed for %s: %s", pdf_path, exc)
             images = []
 
+        page_tables = _tables_by_page(tables)
+        page_images = _images_by_page(images)
+
+        enriched_pages = []
+        for page in results:
+            page_number = page["page_number"]
+            blocks = page["blocks"]
+            text = _page_text(blocks)
+            current_tables = page_tables.get(page_number, [])
+            current_images = page_images.get(page_number, [])
+
+            enriched_pages.append({
+                "page_number": page_number,
+                "text": text,
+                "blocks": blocks,
+                "tables": current_tables,
+                "metadata": {
+                    "block_count": len(blocks),
+                    "table_count": len(current_tables),
+                    "image_count": len(current_images),
+                    "text_length": len(text),
+                }
+            })
+
         output = {
-            "pages": results,
+            "pages": enriched_pages,
             "tables": tables,
-            "images": images
+            "images": images,
+            "metadata": {
+                "page_count": len(enriched_pages),
+                "table_count": len(tables),
+                "image_count": len(images),
+                "ocr_failed_pages": failed_pages,
+            }
         }
 
         return output

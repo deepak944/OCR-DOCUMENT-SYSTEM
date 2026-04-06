@@ -15,6 +15,11 @@ function Home() {
     Boolean(location.state?.restoredResult) && dismissedRestoreKey !== location.key
   const restoredResult = hasRestoredState ? location.state?.restoredResult : null
   const restoredFileName = hasRestoredState ? location.state?.restoredFileName || null : null
+  const restoredTimeline = hasRestoredState ? location.state?.restoredTimeline || [] : []
+  const restoredActivityId = hasRestoredState ? location.state?.restoredActivityId || null : null
+  const canDownloadWordFromHistory = hasRestoredState
+    ? Boolean(location.state?.canDownloadWordFromHistory)
+    : false
   const activeResult = result || restoredResult
   const activeDocumentName = processedFile?.name || restoredFileName
 
@@ -33,15 +38,15 @@ function Home() {
             <ul>
               <li>
                 <strong>1. Upload</strong>
-                <span>Drag and drop your PDF or image into the secure processing zone.</span>
+                <span>Upload a PDF to extract text, tables, layout blocks, and embedded images.</span>
               </li>
               <li>
-                <strong>2. AI Extraction</strong>
-                <span>Our system intelligently reads text, tables, and layouts using PaddleOCR.</span>
+                <strong>2. OCR + AI</strong>
+                <span>TextTrack AI processes scanned or digital PDFs and prepares structured JSON for chat and export.</span>
               </li>
               <li>
-                <strong>3. Export</strong>
-                <span>Instantly download your fully formatted, editable Microsoft Word document.</span>
+                <strong>3. Continue Work</strong>
+                <span>Talk with AI, download Word or Excel, and reopen saved document sessions from History.</span>
               </li>
             </ul>
           </div>
@@ -81,6 +86,9 @@ function Home() {
             processedFile={processedFile}
             documentName={activeDocumentName}
             isLoading={isLoading}
+            restoredTimeline={restoredTimeline}
+            restoredActivityId={restoredActivityId}
+            canDownloadWordFromHistory={canDownloadWordFromHistory}
           />
         </section>
       </main>

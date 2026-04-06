@@ -14,6 +14,10 @@ function toSortedKeys(values) {
 }
 
 function tableObjectToRows(tableData) {
+  if (tableData && Array.isArray(tableData.rows)) {
+    return tableData.rows;
+  }
+
   if (!tableData || typeof tableData !== "object" || Array.isArray(tableData)) {
     return [];
   }
@@ -119,7 +123,12 @@ function buildTextSheet(workbook, documentData) {
 }
 
 function buildTableSheets(workbook, documentData) {
-  const tables = Array.isArray(documentData?.tables) ? documentData.tables : [];
+  const pageTables = Array.isArray(documentData?.pages)
+    ? documentData.pages.flatMap((page) => Array.isArray(page?.tables) ? page.tables : [])
+    : [];
+  const tables = pageTables.length
+    ? pageTables
+    : (Array.isArray(documentData?.tables) ? documentData.tables : []);
 
   if (!tables.length) {
     const worksheet = workbook.addWorksheet("Tables");
@@ -130,7 +139,10 @@ function buildTableSheets(workbook, documentData) {
   }
 
   tables.forEach((table, index) => {
-    const worksheet = workbook.addWorksheet(sanitizeSheetName(`Table ${index + 1}`, `Table${index + 1}`));
+    const pageNumber = table?.page_number ? `P${table.page_number} ` : "";
+    const worksheet = workbook.addWorksheet(
+      sanitizeSheetName(`${pageNumber}Table ${index + 1}`, `Table${index + 1}`)
+    );
     const rows = tableObjectToRows(table);
 
     if (!rows.length) {

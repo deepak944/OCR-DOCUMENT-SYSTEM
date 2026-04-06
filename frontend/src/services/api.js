@@ -34,7 +34,12 @@ export const downloadWordFile = (data) =>
 
 export const getActivities = () => API.get("/api/activities")
 
+export const getActivityDetails = (id) => API.get(`/api/activities/${id}`)
+
 export const deleteActivity = (id) => API.delete(`/api/activities/${id}`)
+
+export const downloadWordFromHistory = (id) =>
+  API.post(`/api/activities/${id}/download-word`, null, { responseType: "blob" })
 
 export const forgotPassword = (email) =>
   API.post("/api/auth/forgot-password", { email })
@@ -54,6 +59,7 @@ function compactDocumentPayload(documentData) {
   return {
     pages: pages.map((page) => ({
       page_number: page?.page_number,
+      text: typeof page?.text === "string" ? page.text : "",
       blocks: Array.isArray(page?.blocks)
         ? page.blocks
             .map((block) => ({
@@ -61,6 +67,8 @@ function compactDocumentPayload(documentData) {
             }))
             .filter((block) => block.text)
         : [],
+      tables: Array.isArray(page?.tables) ? page.tables : [],
+      metadata: page?.metadata && typeof page.metadata === "object" ? page.metadata : {},
     })),
     tables,
     images: images.map((image) => ({

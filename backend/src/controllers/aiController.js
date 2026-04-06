@@ -34,11 +34,37 @@ exports.chatWithDocument = async (req, res) => {
       documentName
     );
 
+    await Activity.create({
+      userId: req.user.id,
+      action: "AI_CHAT",
+      fileName: documentName || "OCR Document",
+      status: "success",
+      metadata: {
+        prompt: message.trim(),
+        response,
+      },
+    });
+
     res.json({
       response,
     });
   } catch (error) {
     console.error("AI chat failed:", error.message);
+
+    try {
+      await Activity.create({
+        userId: req.user.id,
+        action: "AI_CHAT",
+        fileName: req.body?.documentName || "OCR Document",
+        status: "failed",
+        error: error.message,
+        metadata: {
+          prompt: typeof req.body?.message === "string" ? req.body.message.trim() : "",
+        },
+      });
+    } catch (activityError) {
+      console.error("AI chat activity logging failed:", activityError.message);
+    }
 
     if (error.message === "GEMINI_API_KEY is not configured") {
       return res.status(500).json({
@@ -73,6 +99,7 @@ exports.exportDocumentExcel = async (req, res) => {
       fileName: resolvedDocumentName,
       status: "success",
       metadata: {
+        documentData,
         pages: Array.isArray(documentData?.pages) ? documentData.pages.length : 0,
         tables: Array.isArray(documentData?.tables) ? documentData.tables.length : 0,
       },

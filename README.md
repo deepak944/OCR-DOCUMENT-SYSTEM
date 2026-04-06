@@ -1,76 +1,173 @@
-# TextTrack AI: Professional OCR Document System
+# TextTrack AI
 
-TextTrack AI is an industry-grade, full-stack document intelligence platform. It seamlessly extracts text, tables, and images from both digital and scanned PDFs, transforming them into structured JSON and professional Word documents.
+TextTrack AI is a Docker-based OCR document intelligence platform built with React, Node.js, FastAPI, PaddleOCR, and PostgreSQL. It processes scanned and digital PDFs, returns structured OCR JSON, supports AI chat on extracted content, exports Word and Excel files, and keeps reusable document history.
 
----
+## Current Workflow
 
-## 🚀 How to Start (Onboarding Guide)
+1. Sign in or register from the frontend.
+2. Upload a PDF from the dashboard.
+3. The backend sends the file to the FastAPI OCR service.
+4. The AI service extracts:
+   - page text
+   - text blocks
+   - detected tables
+   - embedded images
+   - page metadata
+5. The frontend shows OCR output, extracted images, and export actions.
+6. Users can:
+   - talk with AI about the uploaded document
+   - download Word
+   - download Excel
+   - reopen past work from History
 
-Whether you are a developer looking to contribute or a user trying to run the system, here is how to get started.
+## Services
 
-### Option A: Running via GitHub (Stay in Sync)
-1. **Clone the Project**:
-   ```bash
-   git clone https://github.com/deepak944/OCR-DOCUMENT-SYSTEM.git
-   cd OCR-DOCUMENT-SYSTEM
-   ```
-2. **Start Services**:
-   ```bash
-   docker-compose up --build
-   ```
-3. **Stay Updated**:
-   To pull the latest improvements from the team:
-   ```bash
-   git pull origin main
-   ```
+### Frontend
+- Stack: React 19, Vite, React Router, Axios
+- Runs on `http://localhost:5173`
+- Main responsibilities:
+  - authentication screens
+  - PDF upload
+  - OCR result viewer
+  - AI chat UI
+  - file-based history cards
 
-### Option B: Running without GitHub (Local Files)
-If you have the project files directly on your machine:
-1. Open a terminal in the project root folder.
-2. Ensure **Docker Desktop** is running.
-3. Run the following command:
-   ```bash
-   docker-compose up --build
-   ```
-4. Access the system at `http://localhost:5173`.
+### Backend
+- Stack: Node.js, Express, Sequelize, PostgreSQL, Gemini SDK
+- Runs on `http://localhost:5000`
+- Main responsibilities:
+  - auth and JWT verification
+  - forwarding OCR/Word work to FastAPI
+  - Excel generation
+  - Gemini-based document assistant
+  - activity and history session storage
 
----
+### AI Service
+- Stack: FastAPI, PaddleOCR, PyMuPDF, Camelot, python-docx
+- Runs on `http://localhost:8000`
+- Main responsibilities:
+  - OCR for digital and scanned PDFs
+  - page rendering for image-based PDFs
+  - table extraction
+  - embedded image extraction
+  - Word document generation
 
-## 🛠 The Architecture (Brief Overview)
+### Database
+- Stack: PostgreSQL 16
+- Runs on `localhost:5432`
+- Stores:
+  - users
+  - sessions
+  - activities
 
-TextTrack AI consists of four primary layers that work in perfect harmony:
+## Service Connections
 
-1. **The Interface (Frontend)**: A React-based SPA that provides a smooth, light-themed user experience. It communicates with the backend via secure API calls.
-2. **The Orchestrator (Backend)**: A Node.js/Express server that manages users (PostgreSQL), handles security (JWT), and coordinates the OCR workflow.
-3. **The Brain (AI Service)**: A Python FastAPI microservice that runs PaddleOCR to "read" your documents and `python-docx` to recreate them.
-4. **The Storage (Database)**: A PostgreSQL instance that keeps your history and credentials safe.
+- `frontend` calls `backend`
+- `backend` calls `ai-service`
+- `backend` uses `postgres`
+- `docker-compose.yml` wires all services together on one Docker network
 
----
+## Main API Surface
 
-## 📚 Deep Dive Documentation
+### Auth
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `POST /api/auth/forgot-password`
+- `POST /api/auth/reset-password`
+- `POST /api/auth/logout`
+- `GET /api/auth/profile`
+- `GET /api/auth/verify`
 
-For a comprehensive explanation of every file, tech, and API in each service, please read these dedicated guides in the `docs/` directory:
+### OCR and File Conversion
+- `POST /upload`
+- `POST /download-word`
 
-- 🖥️ **[Frontend Technical Details](./docs/FRONTEND.md)**: Deep dive into React, Vite, and Styling.
-- ⚙️ **[Backend Technical Details](./docs/BACKEND.md)**: Deep dive into Node.js, JWT, and API Orchestration.
-- 🧠 **[AI Service Technical Details](./docs/AI_SERVICE.md)**: Deep dive into FastAPI, **Uvicorn**, and OCR Logic.
-- 🗄️ **[Database & Storage Details](./docs/DATABASE.md)**: Deep dive into PostgreSQL and Sequelize Models.
-- 🐳 **[Docker & Deployment Guide](./docs/DOCKER.md)**: Deep dive into containerization and networking.
+### AI Assistant
+- `POST /api/ai/chat`
+- `POST /api/ai/export-excel`
 
----
+### History
+- `GET /api/activities`
+- `GET /api/activities/:id`
+- `POST /api/activities/:id/download-word`
+- `DELETE /api/activities/:id`
 
-## 📈 Industry Perspective & Best Practices
+### AI Service
+- `GET /`
+- `POST /process-document`
+- `POST /convert-pdf-to-word`
 
-TextTrack AI is designed with professional enterprise patterns in mind:
-1. **Separation of Concerns (SoC)**: By decoupling the UI, API, and worker services, we ensure that a failure in the AI engine doesn't crash the user's login session.
-2. **Stateless Scalability**: Using JWTs allows the backend to be "stateless," meaning we can run multiple instances of the backend behind a load balancer without needing "sticky sessions."
-3. **Event-Driven Potential**: While currently using direct HTTP, the architecture is ready to be swapped with a Message Queue (RabbitMQ/Kafka) for high-scale asynchronous processing.
-4. **Security by Design**: Password hashing with Bcrypt and ORM migration management are baked into the core to prevent common vulnerabilities.
+## Structured OCR Response
 
+The OCR pipeline returns structured JSON like this:
 
----
+```json
+{
+  "pages": [
+    {
+      "page_number": 1,
+      "text": "Extracted text...",
+      "blocks": [
+        {
+          "text": "Block content"
+        }
+      ],
+      "tables": [],
+      "metadata": {}
+    }
+  ],
+  "tables": [],
+  "images": []
+}
+```
 
-## 📦 File Tech & API Summary
-- **Frontend (`/frontend`)**: Powered by `Vite`. Communicates using `Axios`.
-- **Backend (`/backend`)**: Powered by `Node.js`. Relies on `Sequelize` for database operations.
-- **AI Service (`/ai-service`)**: Powered by `FastAPI` & `Uvicorn`. Uses `PaddleOCR` for high-precision extraction.
+## Running With Docker
+
+1. Make sure Docker Desktop is running.
+2. Create `backend/.env` from `backend/.env.example`.
+3. Start the stack:
+
+```bash
+docker compose up --build
+```
+
+4. Open:
+   - frontend: `http://localhost:5173`
+   - backend health: `http://localhost:5000/health`
+   - ai-service health: `http://localhost:8000/`
+
+## Important Environment Variables
+
+Set these in `backend/.env`:
+
+```env
+PORT=5000
+JWT_SECRET=change-this-secret
+JWT_EXPIRES_IN=24h
+DB_HOST=postgres
+DB_PORT=5432
+DB_NAME=ocr_system
+DB_USER=postgres
+DB_PASSWORD=postgres
+DB_DIALECT=postgres
+AI_SERVICE_URL=http://ai-service:8000
+GEMINI_API_KEY=your_api_key
+GEMINI_MODEL=gemini-2.5-flash
+JSON_BODY_LIMIT=20mb
+```
+
+## Project Documents
+
+- Frontend guide: [frontend/README.md](./frontend/README.md)
+- Backend guide: [backend/README.md](./backend/README.md)
+- AI service guide: [ai-service/README.md](./ai-service/README.md)
+
+## Recent Capabilities Added
+
+- scanned PDF OCR fallback
+- structured page JSON
+- Excel export
+- AI chat on OCR data
+- history-based session restore
+- history-based Word re-download
+- file-grouped history cards

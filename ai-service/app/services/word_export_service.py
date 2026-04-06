@@ -75,16 +75,18 @@ def _table_dict_to_rows(table_dict):
     return rows
 
 
-def _append_tables(document, tables):
+def _append_tables(document, tables, heading_title="Extracted Tables"):
     table_count = 0
 
     for table_data in tables:
-        rows = _table_dict_to_rows(table_data)
+        rows = table_data.get("rows") if isinstance(table_data, dict) else None
+        if not rows:
+            rows = _table_dict_to_rows(table_data)
         if not rows:
             continue
 
         if table_count == 0:
-            document.add_heading("Extracted Tables", level=1)
+            document.add_heading(heading_title, level=1)
 
         table_count += 1
         document.add_paragraph(f"Table {table_count}")
@@ -233,10 +235,15 @@ def convert_pdf_to_word_doc(pdf_path, output_doc_path):
                     normalized_page_number,
                     images_by_page.get(normalized_page_number, [])
                 )
+
+            page_tables = page.get("tables", [])
+            if page_tables:
+                _append_tables(document, page_tables, heading_title=f"Page {page_label} Tables")
     finally:
         pdf_document.close()
 
-    _append_tables(document, tables)
+    if not any(page.get("tables") for page in pages):
+        _append_tables(document, tables)
 
     document.save(output_doc_path)
     return output_doc_path
