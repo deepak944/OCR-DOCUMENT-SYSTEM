@@ -1,47 +1,40 @@
 import axios from "axios"
 
-const API = axios.create({
+export const API = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000",
-  timeout: 300000
+  timeout: 300000,
 })
 
-// Add auth token to requests
 API.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("token")
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+      config.headers.Authorization = `Bearer ${token}`
     }
-    return config;
+    return config
   },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
+  (error) => Promise.reject(error)
+)
 
-// Handle 401 responses
 API.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem("token");
-      window.location.href = "/login";
+      localStorage.removeItem("token")
+      window.location.href = "/login"
     }
-    return Promise.reject(error);
+    return Promise.reject(error)
   }
-);
+)
 
-export const uploadFile = (data) =>
-  API.post("/upload", data)
+export const uploadFile = (data) => API.post("/upload", data)
 
 export const downloadWordFile = (data) =>
   API.post("/download-word", data, { responseType: "blob" })
 
-export const getActivities = () =>
-  API.get("/api/activities")
+export const getActivities = () => API.get("/api/activities")
 
-export const deleteActivity = (id) =>
-  API.delete(`/api/activities/${id}`)
+export const deleteActivity = (id) => API.delete(`/api/activities/${id}`)
 
 export const forgotPassword = (email) =>
   API.post("/api/auth/forgot-password", { email })
@@ -49,19 +42,70 @@ export const forgotPassword = (email) =>
 export const resetPassword = (token, password) =>
   API.post("/api/auth/reset-password", { token, password })
 
-// ── Local OCR result cache (keyed by activity id) ──────────────
+function compactDocumentPayload(documentData) {
+  if (!documentData || typeof documentData !== "object") {
+    return {}
+  }
+
+  const pages = Array.isArray(documentData.pages) ? documentData.pages : []
+  const tables = Array.isArray(documentData.tables) ? documentData.tables : []
+  const images = Array.isArray(documentData.images) ? documentData.images : []
+
+  return {
+    pages: pages.map((page) => ({
+      page_number: page?.page_number,
+      blocks: Array.isArray(page?.blocks)
+        ? page.blocks
+            .map((block) => ({
+              text: typeof block?.text === "string" ? block.text : "",
+            }))
+            .filter((block) => block.text)
+        : [],
+    })),
+    tables,
+    images: images.map((image) => ({
+      page_number: image?.page_number,
+      image_index: image?.image_index,
+      width: image?.width,
+      height: image?.height,
+      extension: image?.extension,
+      xref: image?.xref,
+    })),
+  }
+}
+
+export const chatWithDocument = (message, documentData, history = [], documentName) =>
+  API.post("/api/ai/chat", {
+    message,
+    documentData: compactDocumentPayload(documentData),
+    history: Array.isArray(history) ? history.slice(-8) : [],
+    documentName,
+  })
+
+export const downloadExcelExport = (documentData, documentName) =>
+  API.post(
+    "/api/ai/export-excel",
+    { documentData: compactDocumentPayload(documentData), documentName },
+    { responseType: "blob" }
+  )
+
 const RESULT_CACHE_KEY = "ocr_result_cache"
 const MAX_CACHED = 20
+const ACTIVE_DOCUMENT_KEY = "texttrack_ai_active_document"
 
 export const saveResultToCache = (fileName, resultData) => {
   try {
     const raw = localStorage.getItem(RESULT_CACHE_KEY)
     const cache = raw ? JSON.parse(raw) : []
-    // Each entry keyed by fileName — keep latest per file
-    const filtered = cache.filter((e) => e.fileName !== fileName)
+    const filtered = cache.filter((entry) => entry.fileName !== fileName)
     filtered.unshift({ fileName, data: resultData, savedAt: Date.now() })
-    localStorage.setItem(RESULT_CACHE_KEY, JSON.stringify(filtered.slice(0, MAX_CACHED)))
-  } catch (_) {}
+    localStorage.setItem(
+      RESULT_CACHE_KEY,
+      JSON.stringify(filtered.slice(0, MAX_CACHED))
+    )
+  } catch {
+    return undefined
+  }
 }
 
 export const getResultFromCache = (fileName) => {
@@ -69,6 +113,32 @@ export const getResultFromCache = (fileName) => {
     const raw = localStorage.getItem(RESULT_CACHE_KEY)
     if (!raw) return null
     const cache = JSON.parse(raw)
-    return cache.find((e) => e.fileName === fileName) || null
-  } catch (_) { return null }
+    return cache.find((entry) => entry.fileName === fileName) || null
+  } catch {
+    return null
+  }
+}
+
+export const saveActiveDocument = (documentName, documentData) => {
+  try {
+    localStorage.setItem(
+      ACTIVE_DOCUMENT_KEY,
+      JSON.stringify({
+        documentName: documentName || "OCR Document",
+        documentData: compactDocumentPayload(documentData),
+        savedAt: Date.now(),
+      })
+    )
+  } catch {
+    return undefined
+  }
+}
+
+export const getActiveDocument = () => {
+  try {
+    const raw = localStorage.getItem(ACTIVE_DOCUMENT_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
 }

@@ -5,7 +5,6 @@ import logging
 
 # Work around Paddle oneDNN runtime errors on some CPU setups.
 os.environ.setdefault("FLAGS_use_mkldnn", "0")
-os.environ.setdefault("PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK", "True")
 
 from paddleocr import PaddleOCR
 from app.config import (
