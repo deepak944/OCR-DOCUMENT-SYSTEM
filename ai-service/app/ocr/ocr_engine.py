@@ -1,6 +1,7 @@
 import os
 import gc
 import cv2
+import json
 import logging
 
 # Work around Paddle oneDNN runtime errors on some CPU setups.
@@ -57,28 +58,72 @@ def _parse_ocr_result(result):
     if not result:
         return blocks
 
+    if isinstance(result, str):
+        try:
+            return _parse_ocr_result(json.loads(result))
+        except json.JSONDecodeError:
+            return blocks
+
+    if isinstance(result, dict):
+        result = [result]
+
     first_item = result[0] if isinstance(result, list) and result else None
 
     # PaddleOCR v3 style output (dict with arrays).
     if isinstance(first_item, dict):
-        texts = first_item.get("rec_texts") or []
-        scores = first_item.get("rec_scores") or []
-        polys = first_item.get("dt_polys") or []
+        result_items = result if isinstance(result, list) else [first_item]
 
-        for index, text in enumerate(texts):
-            confidence = scores[index] if index < len(scores) else None
-            bbox = polys[index] if index < len(polys) else None
+        for result_item in result_items:
+            if not isinstance(result_item, dict):
+                continue
 
-            if hasattr(bbox, "tolist"):
-                bbox = bbox.tolist()
+            if isinstance(result_item.get("res"), dict):
+                result_item = result_item["res"]
 
-            blocks.append({
-                "text": text,
-                "confidence": confidence,
-                "bbox": bbox
-            })
+            texts = result_item.get("rec_texts") or []
+            scores = result_item.get("rec_scores") or []
+            polys = result_item.get("dt_polys") or result_item.get("rec_polys") or []
+
+            for index, text in enumerate(texts):
+                clean_text = str(text or "").strip()
+                if not clean_text:
+                    continue
+
+                confidence = scores[index] if index < len(scores) else None
+                bbox = polys[index] if index < len(polys) else None
+
+                if hasattr(bbox, "tolist"):
+                    bbox = bbox.tolist()
+
+                blocks.append({
+                    "text": clean_text,
+                    "confidence": confidence,
+                    "bbox": bbox
+                })
 
         return blocks
+
+    # PaddleOCR v3 Result objects can usually be converted to dicts.
+    if hasattr(first_item, "json"):
+        try:
+            json_result = first_item.json() if callable(first_item.json) else first_item.json
+            return _parse_ocr_result(json_result)
+        except Exception:
+            logging.exception("Failed to parse PaddleOCR JSON result")
+
+    if hasattr(first_item, "dict"):
+        try:
+            dict_result = first_item.dict() if callable(first_item.dict) else first_item.dict
+            return _parse_ocr_result(dict_result)
+        except Exception:
+            logging.exception("Failed to parse PaddleOCR dict result")
+
+    if hasattr(first_item, "to_dict"):
+        try:
+            dict_result = first_item.to_dict() if callable(first_item.to_dict) else first_item.to_dict
+            return _parse_ocr_result(dict_result)
+        except Exception:
+            logging.exception("Failed to parse PaddleOCR to_dict result")
 
     # PaddleOCR v2 style output ([[bbox, [text, confidence]], ...]).
     if first_item:

@@ -1,4 +1,5 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks
+from pydantic import BaseModel
 from fastapi.responses import FileResponse
 from fastapi.concurrency import run_in_threadpool
 import hashlib
@@ -8,7 +9,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from app.services.document_services import process_document
-from app.services.word_export_service import convert_pdf_to_word_doc
+from app.services.word_export_service import convert_extracted_data_to_word_doc, convert_pdf_to_word_doc
 from app.config import UPLOAD_FOLDER, WORD_EXPORT_FOLDER
 
 app = FastAPI(title="OCR AI Service")
@@ -16,6 +17,11 @@ app = FastAPI(title="OCR AI Service")
 # In-memory result cache keyed by SHA-256 file hash (max 50 entries, FIFO eviction)
 _ocr_cache: dict = {}
 _MAX_CACHE = 50
+
+
+class WordExportRequest(BaseModel):
+    document_data: dict
+    document_name: str = "OCR Document"
 
 
 def _sha256(path: str) -> str:
@@ -134,6 +140,38 @@ async def convert_pdf_to_word_api(background_tasks: BackgroundTasks, file: Uploa
     finally:
         _remove_file_if_exists(request_pdf_path)
         _remove_dir_if_empty(UPLOAD_FOLDER)
+
+
+@app.post("/convert-ocr-json-to-word")
+async def convert_ocr_json_to_word_api(payload: WordExportRequest, background_tasks: BackgroundTasks):
+    word_file_path = None
+
+    try:
+        if not isinstance(payload.document_data, dict):
+            raise HTTPException(status_code=422, detail="document_data must be an object")
+
+        os.makedirs(WORD_EXPORT_FOLDER, exist_ok=True)
+
+        original_stem = Path(payload.document_name or "document").stem or "document"
+        word_file_name = f"{original_stem}-{uuid4().hex[:8]}.docx"
+        word_file_path = os.path.join(WORD_EXPORT_FOLDER, word_file_name)
+
+        await run_in_threadpool(convert_extracted_data_to_word_doc, payload.document_data, word_file_path)
+
+        response = FileResponse(
+            path=word_file_path,
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            filename=f"{original_stem}.docx"
+        )
+        background_tasks.add_task(_remove_file_if_exists, word_file_path)
+        background_tasks.add_task(_remove_dir_if_empty, WORD_EXPORT_FOLDER)
+        return response
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logging.exception("Failed to convert OCR JSON to Word %s", payload.document_name)
+        raise HTTPException(status_code=500, detail=f"Failed to convert OCR data to Word: {str(exc)}")
 
 # Backward-compatible ASGI alias for commands using `app.main:main`.
 main = app

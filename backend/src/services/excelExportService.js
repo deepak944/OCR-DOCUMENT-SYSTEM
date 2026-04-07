@@ -72,6 +72,45 @@ function applyTableStyling(worksheet) {
   };
 }
 
+function parseImageDataUrl(dataUrl) {
+  if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/")) {
+    return null;
+  }
+
+  const match = dataUrl.match(/^data:image\/([a-zA-Z0-9.+-]+);base64,(.+)$/);
+  if (!match) {
+    return null;
+  }
+
+  const extension = match[1].toLowerCase();
+  if (!["png", "jpeg", "jpg", "gif"].includes(extension)) {
+    return null;
+  }
+
+  return {
+    base64: dataUrl,
+    extension: extension === "jpg" ? "jpeg" : extension,
+  };
+}
+
+function getPreviewDimensions(image) {
+  const width = Number(image?.width || 0);
+  const height = Number(image?.height || 0);
+
+  if (!width || !height) {
+    return { width: 180, height: 120 };
+  }
+
+  const maxWidth = 220;
+  const maxHeight = 160;
+  const ratio = Math.min(maxWidth / width, maxHeight / height, 1);
+
+  return {
+    width: Math.max(60, Math.round(width * ratio)),
+    height: Math.max(40, Math.round(height * ratio)),
+  };
+}
+
 function buildOverviewSheet(workbook, documentData, documentName) {
   const worksheet = workbook.addWorksheet("Overview");
   const pageCount = Array.isArray(documentData?.pages) ? documentData.pages.length : 0;
@@ -92,6 +131,63 @@ function buildOverviewSheet(workbook, documentData, documentName) {
   applyTableStyling(worksheet);
 }
 
+function buildImagesSheet(workbook, documentData) {
+  const images = Array.isArray(documentData?.images) ? documentData.images : [];
+  const worksheet = workbook.addWorksheet("Extracted Images");
+
+  worksheet.columns = [
+    { header: "Image", key: "image", width: 12 },
+    { header: "Page", key: "page", width: 10 },
+    { header: "Format", key: "format", width: 12 },
+    { header: "Size", key: "size", width: 16 },
+    { header: "Bytes", key: "bytes", width: 14 },
+    { header: "Preview", key: "preview", width: 36 },
+  ];
+
+  if (!images.length) {
+    worksheet.addRow({
+      image: "-",
+      page: "-",
+      format: "-",
+      size: "-",
+      bytes: "-",
+      preview: "No extracted images were detected in the uploaded PDF.",
+    });
+    applyTableStyling(worksheet);
+    return;
+  }
+
+  images.forEach((image, index) => {
+    const row = worksheet.addRow({
+      image: index + 1,
+      page: image?.page_number ?? "",
+      format: image?.extension || image?.mime_type || "image",
+      size: image?.width && image?.height ? `${image.width} x ${image.height}` : "",
+      bytes: image?.size_bytes || "",
+      preview: image?.data_url ? "" : "Preview unavailable. OCR metadata is saved, but inline image data was not available.",
+    });
+    const parsedImage = parseImageDataUrl(image?.data_url);
+
+    if (parsedImage) {
+      const imageId = workbook.addImage(parsedImage);
+      const dimensions = getPreviewDimensions(image);
+      const rowNumber = row.number;
+
+      worksheet.getRow(rowNumber).height = Math.max(90, dimensions.height * 0.75);
+      worksheet.addImage(imageId, {
+        tl: { col: 5.05, row: rowNumber - 0.9 },
+        ext: dimensions,
+        editAs: "oneCell",
+      });
+    } else if (image?.data_url) {
+      row.getCell(6).value = "Preview data exists, but this image format is not supported by Excel export.";
+    }
+  });
+
+  applyTableStyling(worksheet);
+  worksheet.getColumn("preview").width = 42;
+}
+
 function buildTextSheet(workbook, documentData) {
   const worksheet = workbook.addWorksheet("Document Text");
   worksheet.columns = [
@@ -105,12 +201,13 @@ function buildTextSheet(workbook, documentData) {
     worksheet.addRow({ page: "-", text: "No extracted text available." });
   } else {
     pages.forEach((page) => {
-      const text = Array.isArray(page?.blocks)
+      const blockText = Array.isArray(page?.blocks)
         ? page.blocks
             .map((block) => String(block?.text || "").trim())
             .filter(Boolean)
             .join("\n")
         : "";
+      const text = blockText || String(page?.text || "").trim();
 
       worksheet.addRow({
         page: page?.page_number ?? "",
@@ -180,6 +277,7 @@ async function createExcelWorkbookBuffer(documentData, documentName) {
   buildOverviewSheet(workbook, documentData, documentName);
   buildTextSheet(workbook, documentData);
   buildTableSheets(workbook, documentData);
+  buildImagesSheet(workbook, documentData);
 
   return workbook.xlsx.writeBuffer();
 }

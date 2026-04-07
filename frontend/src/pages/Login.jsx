@@ -55,7 +55,7 @@ const Login = () => {
   return (
     <div className="auth-container">
       <div className="auth-card">
-        <h2 className="brand-logo" style={{ textAlign: "center", marginBottom: "16px" }}>TextTrack <span className="brand-ai">AI</span></h2>
+        <h2 className="brand-logo auth-brand-logo">TextTrack <span className="brand-ai">AI</span></h2>
         <h1 className="auth-title">Welcome Back</h1>
         <p className="auth-subtitle">Sign in to your account</p>
 

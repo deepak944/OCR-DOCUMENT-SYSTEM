@@ -27,8 +27,9 @@ def _env_bool(name, default=False):
 
 
 OCR_CPU_THREADS = _env_int("OCR_CPU_THREADS", 2)
-OCR_FALLBACK_DPI = _env_int("OCR_FALLBACK_DPI", 200)
-OCR_MAX_SIDE = _env_int("OCR_MAX_SIDE", 1600)
-OCR_ENABLE_PREPROCESSING = _env_bool("OCR_ENABLE_PREPROCESSING", False)
-# Detection model name — use mobile variant by default to reduce memory usage
-OCR_DET_MODEL = os.getenv("OCR_DET_MODEL", "PP-OCRv5_mobile_det")
+OCR_FALLBACK_DPI = _env_int("OCR_FALLBACK_DPI", 250)
+OCR_MAX_SIDE = _env_int("OCR_MAX_SIDE", 2200)
+OCR_ENABLE_PREPROCESSING = _env_bool("OCR_ENABLE_PREPROCESSING", True)
+# Stronger detector by default for scanned PDFs. Set OCR_DET_MODEL=PP-OCRv5_mobile_det
+# if the deployment needs the smaller/lower-memory model.
+OCR_DET_MODEL = os.getenv("OCR_DET_MODEL", "PP-OCRv5_server_det")

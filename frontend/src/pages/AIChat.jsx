@@ -61,6 +61,9 @@ function AIChat() {
       ? {
           documentData: location.state.documentData,
           documentName: location.state.documentName || "OCR Document",
+          restoredMessages: Array.isArray(location.state.restoredMessages)
+            ? location.state.restoredMessages
+            : [],
         }
       : getActiveDocument()
 
@@ -72,12 +75,16 @@ function AIChat() {
     setDocumentData(activeDocument.documentData)
     setDocumentName(activeDocument.documentName || "OCR Document")
     saveActiveDocument(activeDocument.documentName, activeDocument.documentData)
+    const restoredMessages = Array.isArray(activeDocument.restoredMessages)
+      ? activeDocument.restoredMessages
+      : []
     setMessages([
       {
         id: `assistant-ready-${Date.now()}`,
         role: "assistant",
         content: `Current document loaded: ${activeDocument.documentName || "OCR Document"}. I will use this PDF for document questions, and I can still answer general questions when needed.`,
       },
+      ...restoredMessages,
     ])
     setError("")
     setInput("")

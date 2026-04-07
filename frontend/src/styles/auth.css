@@ -16,22 +16,29 @@
   border-radius: 24px;
   padding: 40px;
   width: 100%;
-  max-width: 440px;
+  max-width: 520px;
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
 }
 
+.auth-brand-logo {
+  text-align: center;
+  margin-bottom: 18px;
+  font-size: 42px;
+}
+
 .auth-title {
-  font-size: 28px;
-  font-weight: 700;
+  font-size: 36px;
+  font-weight: 800;
   color: #0f172a;
   margin: 0 0 8px 0;
   text-align: center;
 }
 
 .auth-subtitle {
-  font-size: 14px;
-  color: #94a3b8;
-  margin: 0 0 32px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #64748b;
+  margin: 0 0 18px 0;
   text-align: center;
 }
 
@@ -209,7 +216,15 @@
     padding: 30px 24px;
   }
 
+  .auth-brand-logo {
+    font-size: 34px;
+  }
+
   .auth-title {
-    font-size: 24px;
+    font-size: 28px;
+  }
+
+  .auth-subtitle {
+    font-size: 16px;
   }
 }

@@ -25,6 +25,29 @@ function getDocumentData(metadata) {
   return null
 }
 
+function getCachedDocumentData(fileName) {
+  const cached = getResultFromCache(fileName)?.data
+
+  if (!cached) {
+    return null
+  }
+
+  return cached?.data || cached
+}
+
+function pickReferenceActivity(sortedItems) {
+  return (
+    sortedItems.find(
+      (activity) =>
+        activity.status === "success" &&
+        activity.action === "OCR_PROCESS" &&
+        getDocumentData(activity.metadata)
+    ) ||
+    sortedItems.find((activity) => getDocumentData(activity.metadata)) ||
+    sortedItems[0]
+  )
+}
+
 function getActionLabel(action) {
   const labels = {
     OCR_PROCESS: "OCR",
@@ -52,11 +75,10 @@ function groupActivitiesByFile(activities) {
         .slice()
         .sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt))
 
-      const referenceActivity =
-        sortedItems.find((activity) => getDocumentData(activity.metadata)) || sortedItems[0]
+      const referenceActivity = pickReferenceActivity(sortedItems)
       const documentData =
         getDocumentData(referenceActivity?.metadata) ||
-        getResultFromCache(fileName)?.data ||
+        getCachedDocumentData(fileName) ||
         null
       const pages = Array.isArray(documentData?.pages) ? documentData.pages.length : 0
       const tables = Array.isArray(documentData?.tables)
@@ -140,7 +162,7 @@ function History() {
       const restoredResult =
         detail.documentData ||
         group.documentData ||
-        getResultFromCache(group.fileName)?.data
+        getCachedDocumentData(group.fileName)
 
       if (!restoredResult) {
         setError("This history entry does not have enough saved document data to reopen yet.")
@@ -152,7 +174,7 @@ function History() {
           restoredResult,
           restoredFileName: detail.documentName || group.fileName,
           restoredTimeline: detail.relatedActivities || [],
-          restoredActivityId: group.openActivityId,
+          restoredActivityId: detail.sourceActivityId || group.openActivityId,
           canDownloadWordFromHistory: Boolean(detail.availableActions?.canDownloadWord),
         },
       })

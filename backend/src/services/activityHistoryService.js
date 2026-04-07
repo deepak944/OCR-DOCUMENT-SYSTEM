@@ -82,7 +82,7 @@ function getActivitySummary(activity) {
 
 function findBestDocumentActivity(activity, relatedActivities = []) {
   const ownDocument = extractDocumentData(activity?.metadata);
-  if (ownDocument) {
+  if (ownDocument && activity?.action === "OCR_PROCESS") {
     return activity;
   }
 
@@ -119,7 +119,15 @@ function findBestDocumentActivity(activity, relatedActivities = []) {
     return previousMatch;
   }
 
-  return ocrActivities[0] || null;
+  if (ocrActivities[0]) {
+    return ocrActivities[0];
+  }
+
+  if (ownDocument) {
+    return activity;
+  }
+
+  return null;
 }
 
 function getSessionActivities(activity, relatedActivities = [], sourceActivity) {

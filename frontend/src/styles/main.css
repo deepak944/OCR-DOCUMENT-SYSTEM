@@ -49,7 +49,7 @@ body {
 
 .brand-logo {
   margin: 0;
-  font-size: 28px;
+  font-size: 46px;
   font-weight: 900;
   letter-spacing: -1px;
   color: #0f172a;
@@ -57,16 +57,40 @@ body {
 }
 
 .brand-ai {
+  display: inline-block;
+  position: relative;
+  font-size: 1.35em;
+  font-weight: 900;
+  line-height: 0.9;
+  vertical-align: baseline;
   background: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
+  background-size: 200% 200%;
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
+  animation: brand-ai-float 2.8s ease-in-out infinite, brand-ai-shimmer 4s linear infinite;
+}
+
+.brand-ai::after {
+  content: "";
+  position: absolute;
+  inset: -2px -4px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.18), transparent 68%);
+  filter: blur(10px);
+  opacity: 0.8;
+  z-index: -1;
+  animation: brand-ai-glow 2.8s ease-in-out infinite;
 }
 
 .user-name {
   font-size: 14px;
   color: var(--ink);
   font-weight: 500;
+}
+
+.user-name-icon {
+  margin-right: 6px;
 }
 
 .logout-btn {
@@ -133,13 +157,19 @@ body {
 
 .cardTitle {
   margin: 0;
-  font-size: 36px;
+  font-size: 48px;
   font-weight: 800;
   line-height: 1.2;
   background: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
+}
+
+.homeTitleBase {
+  color: #0f172a;
+  background: none;
+  -webkit-text-fill-color: #0f172a;
 }
 
 .cardSubtitle {
@@ -216,6 +246,36 @@ body {
   padding: 30px;
   background: #f1f5f9;
   transition: all 0.3s ease;
+}
+
+.uploadGate {
+  margin-bottom: 18px;
+  padding: 18px;
+  border: 1px solid #bfdbfe;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff 0%, #eff6ff 100%);
+}
+
+.uploadGateTitle {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.uploadGateText {
+  margin: 8px 0 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.uploadGateActions {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .uploadBox:hover {
@@ -664,6 +724,40 @@ body {
   }
 }
 
+@keyframes brand-ai-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes brand-ai-shimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  100% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes brand-ai-glow {
+  0%,
+  100% {
+    transform: scale(0.96);
+    opacity: 0.55;
+  }
+
+  50% {
+    transform: scale(1.06);
+    opacity: 0.9;
+  }
+}
+
 .skeleton {
   border-radius: 6px;
   background: linear-gradient(
@@ -1088,11 +1182,15 @@ body {
   }
 
   .cardTitle {
-    font-size: 24px;
+    font-size: 32px;
   }
 
   .navbar {
     flex-direction: column;
+  }
+
+  .brand-logo {
+    font-size: 38px;
   }
 
   .navbar-user {

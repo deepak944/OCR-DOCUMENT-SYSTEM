@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom"
 import {
   downloadExcelExport,
   downloadWordFile,
+  downloadWordExport,
   downloadWordFromHistory,
   saveActiveDocument,
 } from "../services/api"
@@ -39,7 +40,81 @@ function sanitizeDocumentForAssistant(documentData) {
       const { data_url: _data_url, ...rest } = image
       return rest
     }),
+    metadata: documentData.metadata && typeof documentData.metadata === "object" ? documentData.metadata : {},
   }
+}
+
+function sanitizeDocumentForDisplay(documentData) {
+  if (!documentData || typeof documentData !== "object") {
+    return {}
+  }
+
+  return JSON.parse(
+    JSON.stringify(documentData, (key, value) => {
+      if (key === "data_url" && typeof value === "string" && value) {
+        return "[inline image preview available in the Images panel]"
+      }
+
+      return value
+    })
+  )
+}
+
+function getPageText(page) {
+  const blockText = Array.isArray(page?.blocks)
+    ? page.blocks
+        .map((block) => String(block?.text || "").trim())
+        .filter(Boolean)
+        .join("\n")
+    : ""
+
+  return blockText || String(page?.text || "").trim()
+}
+
+function buildRestoredChatMessages(restoredTimeline) {
+  if (!Array.isArray(restoredTimeline)) {
+    return []
+  }
+
+  return restoredTimeline
+    .filter((entry) => entry?.action === "AI_CHAT" && (entry.prompt || entry.response))
+    .flatMap((entry) => {
+      const messages = []
+
+      if (entry.prompt) {
+        messages.push({
+          id: `restored-user-${entry.id}`,
+          role: "user",
+          content: entry.prompt,
+        })
+      }
+
+      if (entry.response) {
+        messages.push({
+          id: `restored-assistant-${entry.id}`,
+          role: "assistant",
+          content: entry.response,
+        })
+      }
+
+      return messages
+    })
+}
+
+async function getDownloadErrorMessage(error, fallbackMessage) {
+  const responseData = error?.response?.data
+
+  if (responseData instanceof Blob) {
+    try {
+      const text = await responseData.text()
+      const parsed = JSON.parse(text)
+      return parsed?.error || parsed?.detail || fallbackMessage
+    } catch {
+      return fallbackMessage
+    }
+  }
+
+  return responseData?.error || responseData?.detail || fallbackMessage
 }
 
 function ResultBox({
@@ -60,9 +135,10 @@ function ResultBox({
   const payload = result?.data || result
   const extractedImages = Array.isArray(payload?.images) ? payload.images : []
   const assistantDocument = sanitizeDocumentForAssistant(payload)
+  const displayDocument = sanitizeDocumentForDisplay(payload)
   const extractedText = Array.isArray(payload?.pages)
     ? payload.pages
-        .map((page) => (Array.isArray(page?.blocks) ? page.blocks : []).map((block) => block.text).join("\n"))
+        .map((page) => getPageText(page))
         .filter(Boolean)
         .join("\n\n")
     : ""
@@ -90,19 +166,24 @@ function ResultBox({
       setDownloadError("")
 
       let response
-      let fallbackName
+      const resolvedDocumentName = documentName || processedFile?.name || "OCR Document"
+      let fallbackName = `${resolvedDocumentName.replace(/\.pdf$/i, "") || "document"}.docx`
 
-      if (processedFile) {
-        const formData = new FormData()
-        formData.append("file", processedFile)
-        response = await downloadWordFile(formData)
-        fallbackName = `${processedFile.name.replace(/\.pdf$/i, "") || "document"}.docx`
+      if (payload) {
+        response = await downloadWordExport(payload, resolvedDocumentName)
+      } else if (processedFile) {
+        try {
+          const formData = new FormData()
+          formData.append("file", processedFile)
+          response = await downloadWordFile(formData)
+          fallbackName = `${processedFile.name.replace(/\.pdf$/i, "") || "document"}.docx`
+        } catch {
+          throw new Error("Word download failed. Please upload the PDF again and try once more.")
+        }
       } else if (canDownloadWordFromHistory && restoredActivityId) {
         response = await downloadWordFromHistory(restoredActivityId)
-        fallbackName = `${(documentName || "document").replace(/\.pdf$/i, "") || "document"}.docx`
       } else {
-        setDownloadError("Word download is available only when the original PDF is still linked to this history entry.")
-        return
+        throw new Error("Word download needs either saved OCR data or the original PDF. Please upload the PDF again and try once more.")
       }
 
       const contentType =
@@ -121,8 +202,8 @@ function ResultBox({
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
     } catch (error) {
-      const apiError = error?.response?.data?.error
-      setDownloadError(apiError || "Word download failed. Please try again.")
+      const apiError = await getDownloadErrorMessage(error, error?.message || "Word download failed. Please try again.")
+      setDownloadError(apiError)
     } finally {
       setIsDownloading(false)
     }
@@ -157,8 +238,8 @@ function ResultBox({
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
     } catch (error) {
-      const apiError = error?.response?.data?.error
-      setDownloadError(apiError || "Excel download failed. Please try again.")
+      const apiError = await getDownloadErrorMessage(error, "Excel download failed. Please try again.")
+      setDownloadError(apiError)
     } finally {
       setIsDownloadingExcel(false)
     }
@@ -176,6 +257,7 @@ function ResultBox({
       state: {
         documentName: resolvedDocumentName,
         documentData: assistantDocument,
+        restoredMessages: buildRestoredChatMessages(restoredTimeline),
       },
     })
   }
@@ -326,7 +408,7 @@ function ResultBox({
             {activeTab === "text" ? (
               <pre className="resultPreview">{extractedText || "No text extracted."}</pre>
             ) : (
-              <pre className="resultPreview">{JSON.stringify(assistantDocument, null, 2)}</pre>
+              <pre className="resultPreview">{JSON.stringify(displayDocument, null, 2)}</pre>
             )}
           </div>
         </div>

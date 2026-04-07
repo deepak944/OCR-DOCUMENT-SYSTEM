@@ -1,5 +1,6 @@
 from collections import defaultdict
 from io import BytesIO
+import base64
 import logging
 
 import fitz
@@ -191,6 +192,105 @@ def _append_page_images(document, pdf_document, page_number, page_images):
 
     if embedded_count == 0:
         document.add_paragraph("Images were detected on this page, but they could not be embedded.")
+
+
+def _extract_data_url_bytes(image_meta):
+    data_url = image_meta.get("data_url") if isinstance(image_meta, dict) else None
+
+    if not isinstance(data_url, str) or ";base64," not in data_url:
+        return None
+
+    try:
+        return base64.b64decode(data_url.split(";base64,", 1)[1], validate=True)
+    except Exception:
+        logging.exception("Unable to decode inline image data for Word export")
+        return None
+
+
+def _append_saved_page_images(document, page_number, page_images):
+    if not page_images:
+        return
+
+    document.add_paragraph("Extracted images:")
+    embedded_count = 0
+
+    for image_position, image_meta in enumerate(sorted(page_images, key=_image_sort_key), start=1):
+        raw_image_bytes = _extract_data_url_bytes(image_meta)
+        image_stream = _to_docx_compatible_image_stream(raw_image_bytes)
+
+        if image_stream is None:
+            continue
+
+        document.add_paragraph(f"Image {image_position}")
+
+        try:
+            image_paragraph = document.add_paragraph()
+            image_paragraph.add_run().add_picture(image_stream, width=Inches(WORD_IMAGE_WIDTH_INCHES))
+            embedded_count += 1
+        except Exception:
+            logging.exception("Failed to embed saved image %s on page %s", image_position, page_number)
+
+    if embedded_count == 0:
+        document.add_paragraph("Images were detected on this page, but inline image preview data was not available.")
+
+
+def convert_extracted_data_to_word_doc(extracted, output_doc_path):
+    pages = extracted.get("pages", []) if isinstance(extracted, dict) else []
+    tables = extracted.get("tables", []) if isinstance(extracted, dict) else []
+    images = extracted.get("images", []) if isinstance(extracted, dict) else []
+    images_by_page = _group_images_by_page(images)
+
+    document = Document()
+    document.add_heading("OCR Document Export", level=0)
+
+    if not pages:
+        document.add_paragraph("No extracted text was available for this document.")
+
+    for page in pages:
+        if not isinstance(page, dict):
+            continue
+
+        page_number = page.get("page_number")
+        page_label = page_number if page_number is not None else "Unknown"
+        normalized_page_number = _normalized_page_number(page_number)
+        document.add_heading(f"Page {page_label}", level=1)
+
+        blocks = sorted(page.get("blocks", []), key=_bbox_sort_key)
+        has_text = False
+
+        for block in blocks:
+            text = _normalize_text(block.get("text", "") if isinstance(block, dict) else "")
+            if not text:
+                continue
+
+            document.add_paragraph(text)
+            has_text = True
+
+        if not has_text:
+            page_text = _normalize_text(page.get("text", ""))
+            if page_text:
+                document.add_paragraph(page_text)
+                has_text = True
+
+        if not has_text:
+            document.add_paragraph("No text detected on this page.")
+
+        if normalized_page_number is not None:
+            _append_saved_page_images(
+                document,
+                normalized_page_number,
+                images_by_page.get(normalized_page_number, [])
+            )
+
+        page_tables = page.get("tables", [])
+        if page_tables:
+            _append_tables(document, page_tables, heading_title=f"Page {page_label} Tables")
+
+    if not any(page.get("tables") for page in pages if isinstance(page, dict)):
+        _append_tables(document, tables)
+
+    document.save(output_doc_path)
+    return output_doc_path
 
 
 def convert_pdf_to_word_doc(pdf_path, output_doc_path):

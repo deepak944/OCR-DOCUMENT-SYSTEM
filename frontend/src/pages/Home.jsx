@@ -28,7 +28,10 @@ function Home() {
       <Navbar />
       <main className="pageShell">
         <section className="card">
-          <h1 className="cardTitle">Welcome to TextTrack AI</h1>
+          <h1 className="cardTitle">
+            <span className="homeTitleBase">Welcome to TextTrack</span>{" "}
+            <span className="brand-ai">AI 📈</span>
+          </h1>
           <p className="cardSubtitle">
             Your professional document intelligence platform.
           </p>

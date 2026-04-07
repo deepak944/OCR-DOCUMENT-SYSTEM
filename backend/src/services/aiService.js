@@ -82,4 +82,23 @@ async function convertPdfToWord(filePath, originalName) {
   });
 }
 
-module.exports = { processDocument, convertPdfToWord };
+async function convertOcrDataToWord(documentData, documentName) {
+  return withRetry(async () => {
+    const response = await axios.post(
+      `${AI_SERVICE_URL}/convert-ocr-json-to-word`,
+      {
+        document_data: documentData,
+        document_name: documentName || "OCR Document",
+      },
+      {
+        responseType: "arraybuffer",
+        timeout: 300000,
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity,
+      }
+    );
+    return response;
+  });
+}
+
+module.exports = { processDocument, convertPdfToWord, convertOcrDataToWord };
