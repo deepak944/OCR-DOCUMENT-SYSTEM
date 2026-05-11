@@ -1,6 +1,6 @@
 import { useState } from "react"
-import Navbar from "../components/Navbar"
-import UploadBox from "../components/UploadBox"
+import { motion } from "framer-motion"
+import UploadZone from "../components/UploadZone"
 import ResultBox from "../components/ResultBox"
 
 function Upload() {
@@ -9,30 +9,30 @@ function Upload() {
   const [isLoading, setIsLoading] = useState(false)
 
   return (
-    <>
-      <Navbar />
-      <main className="pageShell">
-        <section className="card">
-          <h1 className="cardTitle">Upload Document</h1>
-          <p className="cardSubtitle">
-            Upload a PDF to extract text, tables, and images. Supports scanned documents.
-          </p>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      style={{ maxWidth: 800, margin: "0 auto" }}
+    >
+      <h1 style={{ marginBottom: "var(--space-2)" }}>Upload Document</h1>
+      <p style={{ color: "var(--text-secondary)", marginBottom: "var(--space-6)", fontSize: "var(--text-sm)" }}>
+        Upload a PDF to extract text, tables, and images with AI-powered OCR.
+      </p>
 
-          <UploadBox
-            setResult={setResult}
-            setProcessedFile={setProcessedFile}
-            setIsLoading={setIsLoading}
-          />
+      <UploadZone
+        setResult={setResult}
+        setProcessedFile={setProcessedFile}
+        setIsLoading={setIsLoading}
+      />
 
-          <ResultBox
-            result={result}
-            processedFile={processedFile}
-            documentName={processedFile?.name}
-            isLoading={isLoading}
-          />
-        </section>
-      </main>
-    </>
+      <ResultBox
+        result={result}
+        processedFile={processedFile}
+        documentName={processedFile?.name}
+        isLoading={isLoading}
+      />
+    </motion.div>
   )
 }
 

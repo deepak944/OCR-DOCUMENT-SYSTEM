@@ -14,7 +14,7 @@ function Navbar() {
     <div className="navbar">
       <Link to="/" state={null} style={{ textDecoration: "none" }}>
         <h2 className="brand-logo">
-          TextTrack <span className="brand-ai">AI 📈</span>
+          TextTrack <span className="brand-ai">AI </span>
         </h2>
       </Link>
       {isAuthenticated ? (

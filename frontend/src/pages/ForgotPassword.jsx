@@ -1,78 +1,45 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
-import "../styles/auth.css";
+import { useState } from "react"
+import { Link } from "react-router-dom"
+import { motion } from "framer-motion"
+import { FileText } from "lucide-react"
+import { forgotPassword } from "../services/api"
 
 const ForgotPassword = () => {
-  const [email, setEmail] = useState("");
-  const [submitted, setSubmitted] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState("")
+  const [message, setMessage] = useState("")
+  const [error, setError] = useState("")
+  const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-
+    e.preventDefault()
+    setError(""); setMessage(""); setLoading(true)
     try {
-      const { forgotPassword } = await import("../services/api");
-      await forgotPassword(email);
-      setSubmitted(true);
+      const res = await forgotPassword(email)
+      setMessage(res.data.message || "Check your email for reset instructions.")
     } catch (err) {
-      console.error("Forgot password error:", err);
-      // Still show the success screen to prevent email enumeration
-      setSubmitted(true);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (submitted) {
-    return (
-      <div className="auth-container">
-        <div className="auth-card">
-          <div className="success-icon">✓</div>
-          <h1 className="auth-title">Check Your Email</h1>
-          <p className="auth-subtitle">
-            If an account exists for {email}, you will receive password reset instructions.
-          </p>
-          <Link to="/login" className="auth-button" style={{ textAlign: "center", display: "block" }}>
-            Back to Login
-          </Link>
-        </div>
-      </div>
-    );
+      setError(err.response?.data?.error || "Failed to send reset email.")
+    } finally { setLoading(false) }
   }
 
   return (
-    <div className="auth-container">
-      <div className="auth-card">
-        <h1 className="auth-title">Reset Password</h1>
-        <p className="auth-subtitle">Enter your email to receive reset instructions</p>
-
-
-        <form onSubmit={handleSubmit} className="auth-form">
-          <div className="form-group">
-            <label htmlFor="email">Email</label>
-            <input
-              type="email"
-              id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              placeholder="Enter your email"
-              disabled={loading}
-            />
-          </div>
-
-          <button type="submit" className="auth-button" disabled={loading}>
-            {loading ? "Sending..." : "Send Reset Link"}
-          </button>
-        </form>
-
-        <div className="auth-footer">
-          <Link to="/login">Back to login</Link>
+    <div className="auth-page">
+      <motion.div className="auth-card-new glass-card" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.3 }}>
+        <div className="auth-logo">
+          <div className="sidebar-logo-icon" style={{ margin: "0 auto", marginBottom: 12 }}><FileText size={20} /></div>
+          <h2 style={{ fontSize: "var(--text-lg)", fontWeight: 700 }}>TextTrack <span className="text-gradient">AI</span></h2>
         </div>
-      </div>
+        <h1>Forgot Password</h1>
+        <p className="auth-subtitle">Enter your email to reset your password</p>
+        {error && <div className="auth-error-new">{error}</div>}
+        {message && <div className="auth-info-new">{message}</div>}
+        <form onSubmit={handleSubmit} className="auth-form-new">
+          <div><label htmlFor="email">Email</label><input type="email" id="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="Enter your email" disabled={loading} /></div>
+          <button type="submit" className="btn btn-primary auth-submit-btn" disabled={loading}>{loading ? "Sending..." : "Send Reset Link"}</button>
+        </form>
+        <div className="auth-footer-new"><Link to="/login">Back to Sign In</Link></div>
+      </motion.div>
     </div>
-  );
-};
+  )
+}
 
-export default ForgotPassword;
+export default ForgotPassword

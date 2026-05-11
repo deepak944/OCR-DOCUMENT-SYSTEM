@@ -6,7 +6,7 @@ import {
   getActivityDetails,
   getResultFromCache,
 } from "../services/api"
-import Navbar from "../components/Navbar"
+
 import Loader from "../components/Loader"
 
 function getDocumentData(metadata) {
@@ -189,18 +189,11 @@ function History() {
   const formatDate = (dateString) => new Date(dateString).toLocaleString()
 
   if (loading) {
-    return (
-      <>
-        <Navbar />
-        <Loader />
-      </>
-    )
+    return <Loader />
   }
 
   return (
-    <>
-      <Navbar />
-      <div className="history-container">
+    <div className="history-container">
         <h1>Activity History</h1>
         {error && <div className="error-message">{error}</div>}
 
@@ -317,8 +310,7 @@ function History() {
             ))}
           </div>
         )}
-      </div>
-    </>
+    </div>
   )
 }
 

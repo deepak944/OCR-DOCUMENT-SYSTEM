@@ -1,109 +1,99 @@
-import { useState, useEffect } from "react";
-import { useNavigate, Link, useLocation } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
-import "../styles/auth.css";
+import { useState, useEffect } from "react"
+import { useNavigate, Link, useLocation } from "react-router-dom"
+import { motion } from "framer-motion"
+import { FileText } from "lucide-react"
+import { useAuth } from "../context/AuthContext"
 
 const Login = () => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const justRegistered = location.state?.registered === true;
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState("")
+  const [loading, setLoading] = useState(false)
+  const { login } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const justRegistered = location.state?.registered === true
 
-  // Handle Google Login token from URL
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get("token");
-    const errorParam = params.get("error");
-
-    if (errorParam) {
-      setError(errorParam);
-    }
-
+    const params = new URLSearchParams(window.location.search)
+    const token = params.get("token")
+    const errorParam = params.get("error")
+    if (errorParam) setError(errorParam)
     if (token) {
-      console.log("Token received from Google login, saving...");
-      localStorage.setItem("token", token);
-      // Force a full page reload to root to ensure AuthContext picks up the new token
-      window.location.href = "/";
+      localStorage.setItem("token", token)
+      window.location.href = "/"
     }
-  }, []);
+  }, [])
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-
+    e.preventDefault()
+    setError("")
     if (!email.toLowerCase().endsWith("@gmail.com")) {
-      setError("Only @gmail.com accounts are permitted to sign in.");
-      return;
+      setError("Only @gmail.com accounts are permitted to sign in.")
+      return
     }
-
-    setLoading(true);
-
+    setLoading(true)
     try {
-      await login(email, password);
-      navigate("/");
+      await login(email, password)
+      navigate("/")
     } catch (err) {
-      setError(err.response?.data?.error || "Login failed. Please try again.");
+      setError(err.response?.data?.error || "Login failed. Please try again.")
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   return (
-    <div className="auth-container">
-      <div className="auth-card">
-        <h2 className="brand-logo auth-brand-logo">TextTrack <span className="brand-ai">AI</span></h2>
-        <h1 className="auth-title">Welcome Back</h1>
+    <div className="auth-page">
+      <motion.div
+        className="auth-card-new glass-card"
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.3 }}
+      >
+        <div className="auth-logo">
+          <div className="sidebar-logo-icon" style={{ margin: "0 auto", marginBottom: 12 }}>
+            <FileText size={20} />
+          </div>
+          <h2 style={{ fontSize: "var(--text-lg)", fontWeight: 700 }}>
+            TextTrack <span className="text-gradient">AI</span>
+          </h2>
+        </div>
+
+        <h1>Welcome Back</h1>
         <p className="auth-subtitle">Sign in to your account</p>
 
-        {error && <div className="auth-error">{error}</div>}
+        {error && <div className="auth-error-new">{error}</div>}
         {justRegistered && !error && (
-          <div className="auth-info">
-            Account created successfully! Please sign in.
-          </div>
+          <div className="auth-info-new">Account created! Please sign in.</div>
         )}
 
-        <form onSubmit={handleSubmit} className="auth-form">
-          <div className="form-group">
+        <form onSubmit={handleSubmit} className="auth-form-new">
+          <div>
             <label htmlFor="email">Email</label>
             <input
-              type="email"
-              id="email"
-              value={email}
+              type="email" id="email" value={email}
               onChange={(e) => setEmail(e.target.value)}
-              required
-              placeholder="Enter your email"
-              disabled={loading}
+              required placeholder="Enter your email" disabled={loading}
             />
           </div>
-
-          <div className="form-group">
+          <div>
             <label htmlFor="password">Password</label>
             <input
-              type="password"
-              id="password"
-              value={password}
+              type="password" id="password" value={password}
               onChange={(e) => setPassword(e.target.value)}
-              required
-              placeholder="Enter your password"
-              disabled={loading}
+              required placeholder="Enter your password" disabled={loading}
             />
           </div>
-
-          <button type="submit" className="auth-button" disabled={loading}>
+          <button type="submit" className="btn btn-primary auth-submit-btn" disabled={loading}>
             {loading ? "Signing in..." : "Sign In"}
           </button>
         </form>
 
-        <div className="auth-divider">
-          <span>OR</span>
-        </div>
+        <div className="auth-divider-new"><span>OR</span></div>
 
-        <button 
-          className="google-button" 
+        <button
+          className="google-btn-new"
           onClick={() => window.location.href = "http://localhost:5000/api/auth/google"}
         >
           <svg width="18" height="18" viewBox="0 0 18 18">
@@ -115,14 +105,14 @@ const Login = () => {
           Continue with Google
         </button>
 
-        <div className="auth-footer">
+        <div className="auth-footer-new">
           <Link to="/forgot-password">Forgot password?</Link>
-          <span>•</span>
+          <span style={{ color: "var(--text-tertiary)" }}>•</span>
           <Link to="/register">Create account</Link>
         </div>
-      </div>
+      </motion.div>
     </div>
-  );
-};
+  )
+}
 
-export default Login;
+export default Login

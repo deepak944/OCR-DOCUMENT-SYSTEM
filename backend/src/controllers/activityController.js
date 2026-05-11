@@ -137,7 +137,14 @@ const deleteActivity = async (req, res) => {
       return res.status(404).json({ error: "Activity not found or not authorized" });
     }
 
-    await activity.destroy();
+    // Delete ALL activities for this file (permanent delete)
+    if (activity.fileName) {
+      await Activity.destroy({
+        where: { userId, fileName: activity.fileName },
+      });
+    } else {
+      await activity.destroy();
+    }
 
     res.json({ message: "Activity deleted successfully" });
   } catch (error) {
