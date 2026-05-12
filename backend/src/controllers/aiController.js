@@ -5,7 +5,7 @@ const { Activity } = require("../models");
 
 exports.chatWithDocument = async (req, res) => {
   try {
-    const { message, documentData, history, documentName } = req.body;
+    const { message, documentData, history, documentName, language = "en" } = req.body;
 
     if (!message || typeof message !== "string" || !message.trim()) {
       return res.status(400).json({
@@ -32,7 +32,8 @@ exports.chatWithDocument = async (req, res) => {
       message.trim(),
       documentData,
       normalizedHistory,
-      documentName
+      documentName,
+      language
     );
 
     await Activity.create({
@@ -43,6 +44,7 @@ exports.chatWithDocument = async (req, res) => {
       metadata: {
         prompt: message.trim(),
         response,
+        language,
       },
     });
 
@@ -61,6 +63,7 @@ exports.chatWithDocument = async (req, res) => {
         error: error.message,
         metadata: {
           prompt: typeof req.body?.message === "string" ? req.body.message.trim() : "",
+          language: req.body?.language || "en",
         },
       });
     } catch (activityError) {
@@ -80,7 +83,7 @@ exports.chatWithDocument = async (req, res) => {
 };
 
 exports.exportDocumentExcel = async (req, res) => {
-  const { documentData, documentName } = req.body;
+  const { documentData, documentName, language = "en" } = req.body;
 
   if (!documentData || typeof documentData !== "object" || Array.isArray(documentData)) {
     return res.status(400).json({
@@ -103,6 +106,7 @@ exports.exportDocumentExcel = async (req, res) => {
         documentData,
         pages: Array.isArray(documentData?.pages) ? documentData.pages.length : 0,
         tables: Array.isArray(documentData?.tables) ? documentData.tables.length : 0,
+        language,
       },
     });
 
@@ -125,6 +129,9 @@ exports.exportDocumentExcel = async (req, res) => {
       fileName: resolvedDocumentName,
       status: "failed",
       error: error.message,
+      metadata: {
+        language,
+      },
     });
 
     res.status(500).json({
@@ -134,7 +141,7 @@ exports.exportDocumentExcel = async (req, res) => {
 };
 
 exports.exportDocumentWord = async (req, res) => {
-  const { documentData, documentName } = req.body;
+  const { documentData, documentName, language = "en" } = req.body;
 
   if (!documentData || typeof documentData !== "object" || Array.isArray(documentData)) {
     return res.status(400).json({
@@ -156,6 +163,7 @@ exports.exportDocumentWord = async (req, res) => {
         source: "ocr-json",
         pages: Array.isArray(documentData?.pages) ? documentData.pages.length : 0,
         tables: Array.isArray(documentData?.tables) ? documentData.tables.length : 0,
+        language,
       },
     });
 
@@ -180,6 +188,7 @@ exports.exportDocumentWord = async (req, res) => {
       error: error.message,
       metadata: {
         source: "ocr-json",
+        language,
       },
     });
 

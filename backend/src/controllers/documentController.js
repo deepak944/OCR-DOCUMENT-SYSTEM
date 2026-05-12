@@ -39,8 +39,9 @@ exports.uploadDocument = async (req, res) => {
     }
 
     const filePath = req.file.path;
+    const language = req.body.language || "en"; // Get language from request
 
-    const result = await processDocument(filePath);
+    const result = await processDocument(filePath, language);
 
     const archiveInfo = archiveUploadedDocument(filePath, req.file.originalname);
 
@@ -54,6 +55,7 @@ exports.uploadDocument = async (req, res) => {
       metadata: {
         documentData: result,
         historyContext: archiveInfo,
+        language: language,
       },
     });
 

@@ -4,6 +4,9 @@ const fs = require("fs");
 const path = require("path");
 const { AI_SERVICE_URL } = require("../config/config");
 
+// Set to 0 (infinity) so massive PDFs (e.g. 200MB+) can take as long as they need
+const OCR_TIMEOUT_MS = 0; 
+
 // Retry with exponential backoff for transient connection errors
 async function withRetry(fn, retries = 3, baseDelayMs = 2000) {
   let lastError;
@@ -31,7 +34,7 @@ async function withRetry(fn, retries = 3, baseDelayMs = 2000) {
   throw lastError;
 }
 
-async function processDocument(filePath) {
+async function processDocument(filePath, language = "en") {
   if (!fs.existsSync(filePath)) {
     throw new Error(`Uploaded file not found at path: ${filePath}`);
   }
@@ -39,13 +42,14 @@ async function processDocument(filePath) {
   return withRetry(async () => {
     const formData = new FormData();
     formData.append("file", fs.createReadStream(filePath));
+    formData.append("language", language);
 
     const response = await axios.post(
       `${AI_SERVICE_URL}/process-document`,
       formData,
       {
         headers: formData.getHeaders(),
-        timeout: 300000,
+        timeout: OCR_TIMEOUT_MS,
         maxBodyLength: Infinity,
         maxContentLength: Infinity,
       }
@@ -73,7 +77,7 @@ async function convertPdfToWord(filePath, originalName) {
       {
         headers: formData.getHeaders(),
         responseType: "arraybuffer",
-        timeout: 300000,
+        timeout: OCR_TIMEOUT_MS,
         maxBodyLength: Infinity,
         maxContentLength: Infinity,
       }
@@ -92,7 +96,7 @@ async function convertOcrDataToWord(documentData, documentName) {
       },
       {
         responseType: "arraybuffer",
-        timeout: 300000,
+        timeout: OCR_TIMEOUT_MS,
         maxBodyLength: Infinity,
         maxContentLength: Infinity,
       }

@@ -124,7 +124,10 @@ function ChatInterface() {
     setError("")
     setIsExportingExcel(true)
     try {
-      const response = await downloadExcelExport(documentData, documentName)
+      // Get language from localStorage
+      const language = localStorage.getItem("texttrack-lang") || "en"
+      
+      const response = await downloadExcelExport(documentData, documentName, language)
       const fallbackName = `${documentName.replace(/\.pdf$/i, "") || "ocr-document"}.xlsx`
       const fileName = getDownloadName(response.headers["content-disposition"], fallbackName)
       const blob = new Blob([response.data], {
@@ -169,11 +172,15 @@ function ChatInterface() {
         .filter((e) => e.role === "user" || e.role === "assistant")
         .map((e) => ({ role: e.role, content: e.content }))
 
+      // Get language from localStorage
+      const language = localStorage.getItem("texttrack-lang") || "en"
+
       const response = await chatWithDocument(
         trimmed,
         documentData,
         conversationHistory,
-        documentName
+        documentName,
+        language
       )
       appendAssistantMessage(response.data.response)
     } catch (err) {

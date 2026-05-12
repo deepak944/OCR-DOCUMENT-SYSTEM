@@ -2,7 +2,7 @@ import axios from "axios"
 
 export const API = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000",
-  timeout: 300000,
+  timeout: 900000, // 15 minutes for large file uploads
 })
 
 API.interceptors.request.use(
@@ -27,7 +27,13 @@ API.interceptors.response.use(
   }
 )
 
-export const uploadFile = (data) => API.post("/upload", data)
+export const uploadFile = (data, onUploadProgress) =>
+  API.post("/upload", data, {
+    timeout: 0,            // no client-side timeout — large PDFs can take 30+ min
+    onUploadProgress,      // real progress from network bytes sent
+    maxBodyLength: Infinity,
+    maxContentLength: Infinity,
+  })
 
 export const downloadWordFile = (data) =>
   API.post("/download-word", data, { responseType: "blob" })
@@ -106,25 +112,26 @@ function compactDocumentPayload(documentData, options = {}) {
   }
 }
 
-export const chatWithDocument = (message, documentData, history = [], documentName) =>
+export const chatWithDocument = (message, documentData, history = [], documentName, language = "en") =>
   API.post("/api/ai/chat", {
     message,
     documentData: compactDocumentPayload(documentData),
     history: Array.isArray(history) ? history.slice(-8) : [],
     documentName,
+    language,
   })
 
-export const downloadExcelExport = (documentData, documentName) =>
+export const downloadExcelExport = (documentData, documentName, language = "en") =>
   API.post(
     "/api/ai/export-excel",
-    { documentData: compactDocumentPayload(documentData, { includeImageData: true }), documentName },
+    { documentData: compactDocumentPayload(documentData, { includeImageData: true }), documentName, language },
     { responseType: "blob" }
   )
 
-export const downloadWordExport = (documentData, documentName) =>
+export const downloadWordExport = (documentData, documentName, language = "en") =>
   API.post(
     "/api/ai/export-word",
-    { documentData: compactDocumentPayload(documentData, { includeImageData: true }), documentName },
+    { documentData: compactDocumentPayload(documentData, { includeImageData: true }), documentName, language },
     { responseType: "blob" }
   )
 

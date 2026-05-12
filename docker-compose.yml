@@ -21,28 +21,25 @@ services:
     build:
       context: ./ai-service
       dockerfile: Dockerfile
-    command: ["sh", "-lc", "unset PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
     container_name: ocr-ai-service
     environment:
       - OCR_CPU_THREADS=2
-      - OCR_FALLBACK_DPI=200
+      - OCR_FALLBACK_DPI=150
       - OCR_MAX_SIDE=1600
       - OCR_ENABLE_PREPROCESSING=false
-      - OCR_DET_MODEL=PP-OCRv5_mobile_det
-      - PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK=False
-      - FLAGS_use_mkldnn=0
+      - MAX_UPLOAD_BYTES=524288000
     ports:
       - "8000:8000"
     volumes:
-      - paddlex-cache:/root/.paddlex
-    mem_limit: 3g
-    memswap_limit: 3g
+      - easyocr-cache:/root/.EasyOCR
+    mem_limit: 8g
+    memswap_limit: 8g
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"]
-      interval: 30s
-      timeout: 20s
-      retries: 5
-      start_period: 120s
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 180s
 
   backend:
     image: ${DOCKERHUB_USERNAME:-local}/ocr-backend:${IMAGE_TAG:-latest}
@@ -62,6 +59,8 @@ services:
       - DB_PASSWORD=${DB_PASSWORD:-postgres}
       - DB_DIALECT=postgres
       - NODE_ENV=production
+      - REQUEST_TIMEOUT=1800000
+      - OCR_TIMEOUT_MS=1800000
     depends_on:
       postgres:
         condition: service_healthy
@@ -87,4 +86,4 @@ services:
 
 volumes:
   postgres-data:
-  paddlex-cache:
+  easyocr-cache:

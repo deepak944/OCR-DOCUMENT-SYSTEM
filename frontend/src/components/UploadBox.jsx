@@ -29,6 +29,10 @@ function UploadBox({ setResult, setProcessedFile, setIsLoading }) {
 
     const formData = new FormData()
     formData.append("file", file)
+    
+    // Get language from localStorage and add to request
+    const language = localStorage.getItem("texttrack-lang") || "en"
+    formData.append("language", language)
 
     try {
       setIsUploading(true)

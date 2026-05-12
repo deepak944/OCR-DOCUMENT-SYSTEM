@@ -198,13 +198,15 @@ function buildHistoryContext(history) {
     .join("\n");
 }
 
-function buildPrompt(message, documentData, history, documentName = "OCR Document") {
+function buildPrompt(message, documentData, history, documentName = "OCR Document", language = "en") {
   const documentProfileContext = buildDocumentProfileContext(documentData, documentName);
   const documentTextContext = buildDocumentTextContext(documentData, message);
   const tablesContext = buildTablesContext(documentData);
   const imagesContext = buildImagesContext(documentData);
   const documentJson = JSON.stringify(documentData, null, 2).slice(0, MAX_JSON_CONTEXT_CHARS);
   const historyContext = buildHistoryContext(history);
+
+  const languageNote = language !== "en" ? `\nNote: Please respond in ${language} language if possible.` : "";
 
   return `You are an OCR document assistant.
 
@@ -259,7 +261,7 @@ Rules:
 - Do not use labels like "Source:", "Answer:", or "Evidence:".
 - Do not break the response into rigid sections unless the user explicitly asks for a structured format.
 - If the answer comes from the document, weave the relevant page reference naturally into the reply.
-- If the answer is general knowledge, just answer normally.
+- If the answer is general knowledge, just answer normally.${languageNote}
 
 Examples of good style:
 - "The total amount appears to be 4,500 on page 2."
@@ -354,7 +356,7 @@ function isQuotaExceededError(error) {
   return error?.status === 429 || (message.includes("429") && message.includes("quota"));
 }
 
-async function generateDocumentAssistantResponse(message, documentData, history = [], documentName) {
+async function generateDocumentAssistantResponse(message, documentData, history = [], documentName, language = "en") {
   const model = getClient().getGenerativeModel({
     model: GEMINI_MODEL,
     generationConfig: {
@@ -362,7 +364,7 @@ async function generateDocumentAssistantResponse(message, documentData, history 
       topP: 0.8,
     },
   });
-  const prompt = buildPrompt(message, documentData, history, documentName);
+  const prompt = buildPrompt(message, documentData, history, documentName, language);
   let result;
 
   try {

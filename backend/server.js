@@ -13,11 +13,23 @@ const passport = require("passport");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || "20mb";
+const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || "500mb";
+
+// Increase request timeout for large file uploads (15 minutes)
+const REQUEST_TIMEOUT = parseInt(process.env.REQUEST_TIMEOUT || "900000", 10);
 
 app.use(cors());
 app.use(express.json({ limit: JSON_BODY_LIMIT }));
 app.use(express.urlencoded({ extended: true, limit: JSON_BODY_LIMIT }));
+
+// Set timeout for all requests - important for large uploads
+app.use((req, res, next) => {
+  // Set socket timeout
+  req.socket.setTimeout(REQUEST_TIMEOUT);
+  res.setTimeout(REQUEST_TIMEOUT);
+  next();
+});
+
 app.use(passport.initialize());
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));

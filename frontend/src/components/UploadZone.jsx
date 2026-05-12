@@ -8,7 +8,7 @@ import {
 import { useAuth } from "../context/AuthContext"
 import { uploadFile, saveResultToCache } from "../services/api"
 
-const MAX_FILE_SIZE = 20 * 1024 * 1024 // 20MB
+const MAX_FILE_SIZE = 500 * 1024 * 1024 // 500MB
 
 function UploadZone({ setResult, setProcessedFile, setIsLoading, onUploadComplete }) {
   const { isAuthenticated } = useAuth()
@@ -29,7 +29,7 @@ function UploadZone({ setResult, setProcessedFile, setIsLoading, onUploadComplet
     if (rejectedFiles.length > 0) {
       const rejection = rejectedFiles[0]
       if (rejection.errors[0]?.code === "file-too-large") {
-        setError("File exceeds 20MB limit.")
+        setError("File exceeds 500MB limit.")
       } else if (rejection.errors[0]?.code === "file-invalid-type") {
         setError("Only PDF files are supported.")
       } else {
@@ -59,43 +59,45 @@ function UploadZone({ setResult, setProcessedFile, setIsLoading, onUploadComplet
 
     const formData = new FormData()
     formData.append("file", selectedFile)
+    
+    // Get language from localStorage and add to request
+    const language = localStorage.getItem("texttrack-lang") || "en"
+    formData.append("language", language)
 
     try {
       setIsUploading(true)
       setError("")
+      setUploadProgress(0)
       if (setIsLoading) setIsLoading(true)
       if (setResult) setResult(null)
 
-      // Simulate progress
-      const progressInterval = setInterval(() => {
-        setUploadProgress((prev) => {
-          if (prev >= 90) {
-            clearInterval(progressInterval)
-            return 90
-          }
-          return prev + Math.random() * 15
-        })
-      }, 300)
-
-      const res = await uploadFile(formData)
-
-      clearInterval(progressInterval)
-      setUploadProgress(100)
-      setUploadStatus("success")
-
-      if (setResult) setResult(res.data)
-      if (setProcessedFile) setProcessedFile(selectedFile)
-      saveResultToCache(selectedFile.name, res.data)
-
-      if (onUploadComplete) {
-        onUploadComplete(res.data, selectedFile.name)
+      // Real upload progress from axios (bytes actually sent over the network)
+      const onUploadProgress = (progressEvent) => {
+        if (progressEvent.total) {
+          const pct = Math.round((progressEvent.loaded / progressEvent.total) * 90)
+          setUploadProgress(pct) // goes 0→90% during actual upload
+        }
       }
-    } catch (err) {
-      const apiError = err?.response?.data?.error || err?.response?.data?.detail
-      setError(apiError || "Upload failed. Please try again.")
-      setUploadStatus("error")
-      if (setResult) setResult(null)
-      if (setProcessedFile) setProcessedFile(null)
+
+      try {
+        const res = await uploadFile(formData, onUploadProgress)
+        setUploadProgress(100)
+        setUploadStatus("success")
+
+        if (setResult) setResult(res.data)
+        if (setProcessedFile) setProcessedFile(selectedFile)
+        saveResultToCache(selectedFile.name, res.data)
+
+        if (onUploadComplete) {
+          onUploadComplete(res.data, selectedFile.name)
+        }
+      } catch (err) {
+        const apiError = err?.response?.data?.error || err?.response?.data?.detail
+        setError(apiError || "Upload failed. Please try again.")
+        setUploadStatus("error")
+        if (setResult) setResult(null)
+        if (setProcessedFile) setProcessedFile(null)
+      }
     } finally {
       setIsUploading(false)
       if (setIsLoading) setIsLoading(false)
@@ -148,7 +150,7 @@ function UploadZone({ setResult, setProcessedFile, setIsLoading, onUploadComplet
           <p className="upload-subtitle">
             Drag & drop a PDF file here, or click to browse
           </p>
-          <p className="upload-hint">Supports PDF files up to 20MB</p>
+          <p className="upload-hint">Supports PDF files up to 500MB</p>
         </motion.div>
       </motion.div>
 
@@ -229,7 +231,9 @@ function UploadZone({ setResult, setProcessedFile, setIsLoading, onUploadComplet
                 {isUploading ? (
                   <>
                     <Loader2 size={18} className="animate-spin" />
-                    Processing ({Math.round(uploadProgress)}%)
+                    {uploadProgress < 90
+                      ? `Uploading ${Math.round(uploadProgress)}%`
+                      : "Processing… this may take a few minutes"}
                   </>
                 ) : (
                   <>

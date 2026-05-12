@@ -99,7 +99,20 @@ def extract_embedded_images(pdf_path, max_inline_bytes=DEFAULT_MAX_INLINE_IMAGE_
                 xref = image_info[0]
 
                 try:
-                    image_data = document.extract_image(xref)
+                    # Create a Pixmap to correctly handle CMYK, masks, and colorspaces
+                    pix = fitz.Pixmap(document, xref)
+                    
+                    # Convert to RGB if it's CMYK or other complex colorspace
+                    if pix.n - pix.alpha > 3:
+                        pix = fitz.Pixmap(fitz.csRGB, pix)
+                        
+                    # Extract PNG bytes
+                    raw_bytes = pix.tobytes("png")
+                    extension = "png"
+                    
+                    # Free the pixmap
+                    pix = None
+                    
                 except Exception:
                     logging.exception(
                         "Failed to extract image xref=%s on page %s from %s",
@@ -109,12 +122,10 @@ def extract_embedded_images(pdf_path, max_inline_bytes=DEFAULT_MAX_INLINE_IMAGE_
                     )
                     continue
 
-                raw_bytes = image_data.get("image")
                 if not raw_bytes:
                     continue
 
-                extension = (image_data.get("ext") or "png").lower().lstrip(".")
-                mime_type = _mime_type_from_extension(extension)
+                mime_type = "image/png"
                 image_size = len(raw_bytes)
 
                 image_entry = {
@@ -123,8 +134,8 @@ def extract_embedded_images(pdf_path, max_inline_bytes=DEFAULT_MAX_INLINE_IMAGE_
                     "xref": xref,
                     "extension": extension,
                     "mime_type": mime_type,
-                    "width": image_data.get("width"),
-                    "height": image_data.get("height"),
+                    "width": fitz.Pixmap(document, xref).width if not getattr(document, '_is_closed', False) else 0,
+                    "height": fitz.Pixmap(document, xref).height if not getattr(document, '_is_closed', False) else 0,
                     "size_bytes": image_size,
                     "inline_preview_available": image_size <= max_inline_bytes,
                     "data_url": None

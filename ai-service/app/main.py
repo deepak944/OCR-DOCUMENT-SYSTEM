@@ -1,18 +1,23 @@
+import os
+import logging
+import hashlib
+from pathlib import Path
+from uuid import uuid4
+
 from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from fastapi.responses import FileResponse
 from fastapi.concurrency import run_in_threadpool
-import hashlib
-import os
-import logging
-from pathlib import Path
-from uuid import uuid4
 
 from app.services.document_services import process_document
 from app.services.word_export_service import convert_extracted_data_to_word_doc, convert_pdf_to_word_doc
 from app.config import UPLOAD_FOLDER, WORD_EXPORT_FOLDER
 
 app = FastAPI(title="OCR AI Service")
+
+# Upload guard defaults (can be overridden via env vars)
+MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(500 * 1024 * 1024)))  # 500MB default (match frontend)
+UPLOAD_PROGRESS_CHUNK_BYTES = int(os.getenv("UPLOAD_PROGRESS_CHUNK_BYTES", str(4 * 1024 * 1024)))  # 4MB default
 
 # In-memory result cache keyed by SHA-256 file hash (max 50 entries, FIFO eviction)
 _ocr_cache: dict = {}
@@ -22,6 +27,7 @@ _MAX_CACHE = 50
 class WordExportRequest(BaseModel):
     document_data: dict
     document_name: str = "OCR Document"
+    language: str = "en"
 
 
 def _sha256(path: str) -> str:
@@ -60,8 +66,14 @@ def home():
     return {"message": "OCR Service Running"}
 
 
+@app.get("/health")
+def health():
+    """Healthcheck endpoint used by docker-compose to gate backend startup."""
+    return {"status": "ok"}
+
+
 @app.post("/process-document")
-async def process_document_api(file: UploadFile = File(...)):
+async def process_document_api(file: UploadFile = File(...), language: str = "en"):
     if file is None or file.filename == "":
         raise HTTPException(status_code=422, detail="File upload is required")
 
@@ -70,13 +82,45 @@ async def process_document_api(file: UploadFile = File(...)):
 
     file_path = None
 
+    started_at = None
+    bytes_written = 0
+
     try:
         os.makedirs(UPLOAD_FOLDER, exist_ok=True)
         suffix = Path(file.filename).suffix or ".pdf"
         file_path = os.path.join(UPLOAD_FOLDER, f"{uuid4().hex}{suffix}")
 
+        started_at = __import__("time").time()
+
+        # Best-effort: UploadFile doesn't always provide content-length.
+        # We enforce a hard cap while streaming to disk.
         with open(file_path, "wb") as buffer:
-            buffer.write(await file.read())
+            last_log_t = started_at
+            while True:
+                chunk = await file.read(UPLOAD_PROGRESS_CHUNK_BYTES)
+                if not chunk:
+                    break
+
+                bytes_written += len(chunk)
+                if bytes_written > MAX_UPLOAD_BYTES:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"File too large. Max allowed is {MAX_UPLOAD_BYTES / (1024 * 1024):.0f}MB"
+                    )
+
+                buffer.write(chunk)
+
+                # Log every ~3 seconds to see forward progress on large uploads
+                now = __import__("time").time()
+                if now - last_log_t >= 3:
+                    mb = bytes_written / (1024 * 1024)
+                    logging.info("Uploading %s: wrote %.1fMB so far", file.filename, mb)
+                    last_log_t = now
+
+        logging.info("Upload complete for %s: %.1fMB in %.2fs",
+                     file.filename,
+                     bytes_written / (1024 * 1024),
+                     (__import__("time").time() - started_at))
 
         # Return cached result for identical files
         file_key = _sha256(file_path)
@@ -86,7 +130,10 @@ async def process_document_api(file: UploadFile = File(...)):
             return cached
 
         # Run CPU-bound OCR in thread pool — keeps event loop free
+        ocr_started_at = __import__("time").time()
+        logging.info("OCR processing start: %s (cache_key=%s)", file.filename, file_key)
         result = await run_in_threadpool(process_document, file_path)
+        logging.info("OCR processing done: %s in %.2fs", file.filename, __import__("time").time() - ocr_started_at)
         _cache_set(file_key, result)
         return result
 
@@ -99,7 +146,7 @@ async def process_document_api(file: UploadFile = File(...)):
 
 
 @app.post("/convert-pdf-to-word")
-async def convert_pdf_to_word_api(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
+async def convert_pdf_to_word_api(background_tasks: BackgroundTasks, file: UploadFile = File(...), language: str = "en"):
     if file is None or file.filename == "":
         raise HTTPException(status_code=422, detail="File upload is required")
 
@@ -117,7 +164,11 @@ async def convert_pdf_to_word_api(background_tasks: BackgroundTasks, file: Uploa
         request_pdf_path = os.path.join(UPLOAD_FOLDER, request_pdf_name)
 
         with open(request_pdf_path, "wb") as buffer:
-            buffer.write(await file.read())
+            while True:
+                chunk = await file.read(1024 * 1024)
+                if not chunk:
+                    break
+                buffer.write(chunk)
 
         original_stem = Path(file.filename).stem or "document"
         word_file_name = f"{original_stem}-{uuid4().hex[:8]}.docx"

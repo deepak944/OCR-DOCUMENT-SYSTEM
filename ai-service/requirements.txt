@@ -1,23 +1,26 @@
-fastapi==0.135.1
-uvicorn==0.41.0
-python-multipart==0.0.22
+fastapi==0.115.12
+uvicorn==0.34.0
+python-multipart==0.0.20
 
-paddleocr==3.4.0
-paddlepaddle==3.3.0
-paddlex==3.4.2
-opencv-python-headless==4.13.0.92
-numpy==2.4.3
+# CPU-only PyTorch (~230MB vs ~2GB CUDA build)
+--extra-index-url https://download.pytorch.org/whl/cpu
+easyocr==1.7.2
+torch==2.2.2+cpu
+torchvision==0.17.2+cpu
 
-PyMuPDF==1.27.2
-camelot-py==1.0.9
-pandas==3.0.1
+opencv-python-headless==4.10.0.84
+numpy==1.26.4
+
+PyMuPDF==1.24.14
+camelot-py==0.11.0
+pandas==2.2.3
 openpyxl==3.1.5
-pypdfium2==5.6.0
+pypdfium2==4.30.0
 
-python-docx==1.2.0
-pillow==12.1.1
+python-docx==1.1.2
+pillow==10.4.0
 
-requests==2.32.5
-urllib3==2.6.3
-charset-normalizer==3.4.5
+requests==2.32.3
+urllib3==2.2.3
+charset-normalizer==3.3.2
 chardet==5.2.0
