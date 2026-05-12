@@ -13,6 +13,21 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Hide Google Translate Banner & Tooltips */
+body > .skiptranslate { display: none !important; }
+.goog-te-banner-frame.skiptranslate { display: none !important; }
+body { top: 0px !important; }
+.goog-tooltip { display: none !important; }
+.goog-tooltip:hover { display: none !important; }
+.goog-text-highlight { background-color: transparent !important; border: none !important; box-shadow: none !important; }
+
+@layer base {
+}
+
 a {
   font-weight: 500;
   color: #646cff;

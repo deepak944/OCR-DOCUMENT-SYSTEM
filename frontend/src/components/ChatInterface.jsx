@@ -16,12 +16,16 @@ import {
   saveActiveDocument,
 } from "../services/api"
 
-const SUGGESTED_PROMPTS = [
-  { icon: Sparkles, label: "Summarize", prompt: "Summarize this document in detail." },
-  { icon: Table, label: "Extract Tables", prompt: "Extract all tables from this document." },
-  { icon: Globe, label: "Translate", prompt: "Translate the key content of this document to Hindi." },
-  { icon: Mail, label: "Find Emails", prompt: "Find all email addresses mentioned in this document." },
-]
+const getLanguageName = (code) => {
+  const map = {
+    en: "English", hi: "Hindi", ta: "Tamil", te: "Telugu", bn: "Bengali",
+    mr: "Marathi", gu: "Gujarati", kn: "Kannada", ml: "Malayalam",
+    pa: "Punjabi", ur: "Urdu", ar: "Arabic", zh: "Chinese", ja: "Japanese",
+    ko: "Korean", fr: "French", de: "German", es: "Spanish", pt: "Portuguese",
+    ru: "Russian"
+  };
+  return map[code] || "English";
+};
 
 function getDownloadName(contentDisposition, fallbackName) {
   if (!contentDisposition) return fallbackName
@@ -58,6 +62,16 @@ function ChatInterface() {
   const [copiedId, setCopiedId] = useState(null)
   const [isListening, setIsListening] = useState(false)
   const recognitionRef = useRef(null)
+
+  const currentLangCode = localStorage.getItem("texttrack-lang") || "en";
+  const currentLangName = getLanguageName(currentLangCode);
+
+  const SUGGESTED_PROMPTS = [
+    { icon: Sparkles, label: "Summarize", prompt: `Summarize this document in ${currentLangName}.` },
+    { icon: Table, label: "Extract Tables", prompt: "Extract all tables from this document." },
+    { icon: Globe, label: "Translate", prompt: `Translate the key content of this document to ${currentLangName}.` },
+    { icon: Mail, label: "Find Emails", prompt: "Find all email addresses mentioned in this document." },
+  ];
 
   useEffect(() => {
     const activeDocument = location.state?.documentData

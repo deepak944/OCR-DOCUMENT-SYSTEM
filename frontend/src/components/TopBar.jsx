@@ -63,6 +63,17 @@ function TopBar({ onMenuClick, isMobile }) {
     const lang = e.target.value
     setLanguage(lang)
     localStorage.setItem("texttrack-lang", lang)
+    
+    // Set Google Translate cookie to translate the entire UI natively
+    if (lang === "en") {
+      document.cookie = `googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+      document.cookie = `googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; domain=${window.location.hostname}; path=/;`;
+    } else {
+      document.cookie = `googtrans=/en/${lang}; path=/;`;
+      document.cookie = `googtrans=/en/${lang}; domain=${window.location.hostname}; path=/;`;
+    }
+
+    window.location.reload() // Force reload to apply language globally
   }
 
   return (

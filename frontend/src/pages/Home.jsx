@@ -135,8 +135,6 @@ function Home() {
             <div
               key={f.title}
               className="feature-card surface-card"
-              onClick={() => navigate(f.path)}
-              style={{ cursor: "pointer" }}
             >
               <div className="feature-icon"><f.icon size={24} /></div>
               <div className="feature-title">{f.title}</div>
