@@ -25,7 +25,16 @@ const Register = () => {
       await register(name, email, password)
       navigate("/login", { state: { registered: true } })
     } catch (err) {
-      setError(err.response?.data?.error || "Registration failed.")
+      console.error(err)
+      if (err.code === 'auth/email-already-in-use') {
+        setError("An account with this email already exists.")
+      } else if (err.code === 'auth/invalid-email') {
+        setError("Please enter a valid email address.")
+      } else if (err.code === 'auth/weak-password') {
+        setError("Password is too weak. Please use a stronger password.")
+      } else {
+        setError("Registration failed. Please try again.")
+      }
     } finally { setLoading(false) }
   }
 

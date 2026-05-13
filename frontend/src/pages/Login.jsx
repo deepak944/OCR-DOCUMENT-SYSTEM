@@ -9,20 +9,15 @@ const Login = () => {
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
-  const { login } = useAuth()
+  const { login, loginWithGoogle } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const justRegistered = location.state?.registered === true
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
-    const token = params.get("token")
     const errorParam = params.get("error")
     if (errorParam) setError(errorParam)
-    if (token) {
-      localStorage.setItem("token", token)
-      window.location.href = "/"
-    }
   }, [])
 
   const handleSubmit = async (e) => {
@@ -37,7 +32,26 @@ const Login = () => {
       await login(email, password)
       navigate("/")
     } catch (err) {
-      setError(err.response?.data?.error || "Login failed. Please try again.")
+      console.error(err)
+      if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+         setError("Incorrect email or password. Please try again.")
+      } else {
+         setError("Login failed. Please try again.")
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleGoogleLogin = async () => {
+    setError("")
+    setLoading(true)
+    try {
+      await loginWithGoogle()
+      navigate("/")
+    } catch (err) {
+      console.error("Google Auth Error:", err)
+      setError(`Google Login failed: ${err.message}`)
     } finally {
       setLoading(false)
     }
@@ -65,7 +79,7 @@ const Login = () => {
 
         {error && <div className="auth-error-new">{error}</div>}
         {justRegistered && !error && (
-          <div className="auth-info-new">Account created! Please sign in.</div>
+          <div className="auth-info-new">Account created! Please check your email to verify, then sign in.</div>
         )}
 
         <form onSubmit={handleSubmit} className="auth-form-new">
@@ -94,7 +108,8 @@ const Login = () => {
 
         <button
           className="google-btn-new"
-          onClick={() => window.location.href = "http://localhost:5000/api/auth/google"}
+          onClick={handleGoogleLogin}
+          disabled={loading}
         >
           <svg width="18" height="18" viewBox="0 0 18 18">
             <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/>

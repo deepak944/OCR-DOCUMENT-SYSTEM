@@ -1,5 +1,12 @@
-const { verifyToken } = require("../utils/jwt");
-const { Session, User } = require("../models");
+const admin = require("firebase-admin");
+const { User } = require("../models");
+
+// Initialize Firebase Admin (Only needs Project ID to verify tokens)
+if (!admin.apps.length) {
+  admin.initializeApp({
+    projectId: "ocr-project-f7d37"
+  });
+}
 
 const authMiddleware = async (req, res, next) => {
   try {
@@ -11,33 +18,32 @@ const authMiddleware = async (req, res, next) => {
 
     const token = authHeader.substring(7);
 
-    // Check if token is blacklisted
-    const session = await Session.findOne({ where: { token } });
-    if (!session || session.isBlacklisted) {
-      return res.status(401).json({ error: "Token has been invalidated" });
+    // Verify token using Firebase Admin
+    const decodedToken = await admin.auth().verifyIdToken(token);
+
+    if (!decodedToken) {
+      return res.status(401).json({ error: "Invalid Firebase token" });
     }
 
-    // Check if token expired
-    if (new Date() > session.expiresAt) {
-      return res.status(401).json({ error: "Token has expired" });
-    }
-
-    // Verify token
-    const decoded = verifyToken(token);
-    if (!decoded) {
-      return res.status(401).json({ error: "Invalid token" });
-    }
-
-    // Check if user still exists
-    const user = await User.findByPk(decoded.userId);
+    // Sync Firebase user with local Database
+    let user = await User.findOne({ where: { email: decodedToken.email } });
+    
     if (!user) {
-      return res.status(401).json({ error: "User not found" });
+      // Auto-create user in Postgres if they registered via Firebase
+      user = await User.create({
+        name: decodedToken.name || decodedToken.email.split('@')[0],
+        email: decodedToken.email,
+        password: "firebase_managed_password", // Placeholder since Firebase manages it
+        isEmailVerified: decodedToken.email_verified || false,
+        googleId: decodedToken.firebase.sign_in_provider === 'google.com' ? decodedToken.uid : null
+      });
     }
 
     // Attach user info to request
     req.user = {
-      id: decoded.userId,
-      email: decoded.email,
+      id: user.id, // Must be local DB ID for relational queries (Activity.userId)
+      firebaseUid: decodedToken.uid,
+      email: user.email,
       name: user.name,
     };
     req.token = token;
@@ -45,7 +51,7 @@ const authMiddleware = async (req, res, next) => {
     next();
   } catch (error) {
     console.error("Auth middleware error:", error);
-    return res.status(401).json({ error: "Authentication failed" });
+    return res.status(401).json({ error: "Authentication failed. Invalid token." });
   }
 };
 

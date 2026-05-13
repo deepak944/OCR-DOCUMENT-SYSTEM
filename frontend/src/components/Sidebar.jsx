@@ -307,11 +307,11 @@ function Sidebar({ isCollapsed, onToggleCollapse }) {
               style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", cursor: "pointer", flex: 1, minWidth: 0 }}
             >
               <div className="sidebar-user-avatar">
-                {user?.name?.charAt(0)?.toUpperCase() || "U"}
+                {(user?.displayName || user?.name || "U").charAt(0).toUpperCase()}
               </div>
               {!isCollapsed && (
                 <div className="sidebar-user-info">
-                  <span className="sidebar-user-name truncate">{user?.name || "User"}</span>
+                  <span className="sidebar-user-name truncate">{user?.displayName || user?.name || "User"}</span>
                   <span className="sidebar-user-email truncate">{user?.email || ""}</span>
                 </div>
               )}
@@ -339,9 +339,9 @@ function Sidebar({ isCollapsed, onToggleCollapse }) {
 
                   <div className="sidebar-profile-header">
                     <div className="sidebar-profile-avatar">
-                      {user?.name?.charAt(0)?.toUpperCase() || "U"}
+                      {(user?.displayName || user?.name || "U").charAt(0).toUpperCase()}
                     </div>
-                    <h4 className="sidebar-profile-name">{user?.name || "User"}</h4>
+                    <h4 className="sidebar-profile-name">{user?.displayName || user?.name || "User"}</h4>
                     <p className="sidebar-profile-email">{user?.email || ""}</p>
                   </div>
 

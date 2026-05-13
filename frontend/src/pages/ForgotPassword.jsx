@@ -2,7 +2,8 @@ import { useState } from "react"
 import { Link } from "react-router-dom"
 import { motion } from "framer-motion"
 import { FileText } from "lucide-react"
-import { forgotPassword } from "../services/api"
+import { sendPasswordResetEmail } from "firebase/auth"
+import { auth } from "../firebase"
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState("")
@@ -14,10 +15,15 @@ const ForgotPassword = () => {
     e.preventDefault()
     setError(""); setMessage(""); setLoading(true)
     try {
-      const res = await forgotPassword(email)
-      setMessage(res.data.message || "Check your email for reset instructions.")
+      await sendPasswordResetEmail(auth, email)
+      setMessage("Check your email for reset instructions. If an account exists with this email, a link will be sent.")
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to send reset email.")
+      console.error(err)
+      if (err.code === 'auth/invalid-email') {
+        setError("Please enter a valid email address.")
+      } else {
+        setError("Failed to send reset email. Please try again.")
+      }
     } finally { setLoading(false) }
   }
 
