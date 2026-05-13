@@ -1,5 +1,6 @@
 const admin = require("firebase-admin");
 const { User } = require("../models");
+const { sendWelcomeEmail } = require("../utils/emailService");
 
 // Initialize Firebase Admin (Only needs Project ID to verify tokens)
 if (!admin.apps.length) {
@@ -29,14 +30,19 @@ const authMiddleware = async (req, res, next) => {
     let user = await User.findOne({ where: { email: decodedToken.email } });
     
     if (!user) {
+      const name = decodedToken.name || decodedToken.email.split('@')[0];
+      
       // Auto-create user in Postgres if they registered via Firebase
       user = await User.create({
-        name: decodedToken.name || decodedToken.email.split('@')[0],
+        name: name,
         email: decodedToken.email,
-        password: "firebase_managed_password", // Placeholder since Firebase manages it
+        password: "firebase_managed_password",
         isEmailVerified: decodedToken.email_verified || false,
         googleId: decodedToken.firebase.sign_in_provider === 'google.com' ? decodedToken.uid : null
       });
+
+      // Send the beautiful Welcome Email!
+      await sendWelcomeEmail(decodedToken.email, name);
     }
 
     // Attach user info to request
