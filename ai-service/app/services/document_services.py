@@ -124,7 +124,7 @@ def _is_large_pdf(pdf_path, page_count):
     return page_count > MAX_PAGES_FOR_CAMELOT or file_bytes > MAX_FILE_BYTES_FOR_CAMELOT
 
 
-def process_document(pdf_path):
+def process_document(pdf_path, cancel_check=None):
     pages = extract_pdf_text_blocks(pdf_path)
     page_count = len(pages)
     request_dir = None
@@ -141,6 +141,11 @@ def process_document(pdf_path):
 
     try:
         for page in pages:
+            # Check if we should stop between pages
+            if cancel_check and cancel_check():
+                logging.info("Cancellation requested during page loop. Stopping OCR.")
+                raise InterruptedError("Job cancelled by user")
+
             page_number = page["page_number"]
             native_blocks = page["blocks"]
             blocks = native_blocks

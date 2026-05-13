@@ -36,6 +36,11 @@ function Sidebar({ isCollapsed, onToggleCollapse }) {
 
   useEffect(() => {
     if (isAuthenticated) fetchRecentDocs()
+    
+    // Listen for updates from other pages (like History)
+    const handleUpdate = () => fetchRecentDocs();
+    window.addEventListener("activity-updated", handleUpdate);
+    return () => window.removeEventListener("activity-updated", handleUpdate);
   }, [isAuthenticated])
 
   useEffect(() => {
@@ -49,7 +54,7 @@ function Sidebar({ isCollapsed, onToggleCollapse }) {
 
   const fetchRecentDocs = async () => {
     try {
-      setIsLoading(true)
+      // Don't set loading for background updates to avoid flickering
       const res = await getActivities()
       const activities = res.data.activities || []
       const uniqueDocs = []
@@ -82,6 +87,8 @@ function Sidebar({ isCollapsed, onToggleCollapse }) {
     try {
       await deleteActivity(id)
       setRecentDocs((prev) => prev.filter((d) => d.id !== id))
+      // Notify other components
+      window.dispatchEvent(new CustomEvent("activity-updated"));
     } catch { /* silent */ }
     setActiveDocMenu(null)
   }

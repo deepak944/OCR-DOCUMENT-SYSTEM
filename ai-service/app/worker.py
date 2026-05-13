@@ -33,14 +33,29 @@ def run_worker():
             
             logging.info(f"Processing job for Activity {activity_id}: {file_path}")
             
-            if not os.path.exists(file_path):
-                logging.error(f"File not found: {file_path}")
-                update_backend(activity_id, {"status": "failed", "error": "File not found on shared volume"})
+            # Check for cancellation before starting
+            if r.exists(f"cancel:{activity_id}"):
+                logging.info(f"Job {activity_id} was cancelled before starting. Skipping.")
+                r.delete(f"cancel:{activity_id}")
+                if os.path.exists(file_path):
+                    os.remove(file_path)
                 continue
 
             # Process the document
             try:
-                result = process_document(file_path)
+                def cancel_check():
+                    return r.exists(f"cancel:{activity_id}")
+
+                result = process_document(file_path, cancel_check=cancel_check)
+                
+                # Double check after processing
+                if cancel_check():
+                    logging.info(f"Job {activity_id} was cancelled. Discarding results.")
+                    r.delete(f"cancel:{activity_id}")
+                    if os.path.exists(file_path):
+                        os.remove(file_path)
+                    continue
+
                 logging.info(f"OCR Complete for Activity {activity_id}")
                 
                 # Update backend with results

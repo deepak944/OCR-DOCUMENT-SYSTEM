@@ -121,14 +121,14 @@ function History() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    fetchActivities()
+    setLoading(true);
+    fetchActivities();
   }, [])
 
   const fileGroups = useMemo(() => groupActivitiesByFile(activities), [activities])
 
   const fetchActivities = async () => {
     try {
-      setLoading(true)
       const response = await getActivities()
       setActivities(response.data.activities)
     } catch (err) {
@@ -139,11 +139,26 @@ function History() {
     }
   }
 
+  // Auto-refresh if there are processing items
+  useEffect(() => {
+    const hasProcessing = activities.some(a => a.status === 'processing');
+    
+    if (hasProcessing) {
+      const interval = setInterval(() => {
+        fetchActivities();
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [activities]);
+
   const handleDelete = async (id) => {
     setDeletingId(id)
     try {
       await deleteActivity(id)
       setActivities((current) => current.filter((activity) => activity.id !== id))
+      
+      // Notify other components (like Sidebar) to refresh their lists
+      window.dispatchEvent(new CustomEvent("activity-updated"));
     } catch (err) {
       setError("Failed to delete record. Please try again.")
       console.error(err)

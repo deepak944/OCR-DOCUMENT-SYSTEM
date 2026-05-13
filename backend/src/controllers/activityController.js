@@ -137,6 +137,18 @@ const deleteActivity = async (req, res) => {
       return res.status(404).json({ error: "Activity not found or not authorized" });
     }
 
+    // If activity is processing, send cancellation signal to worker
+    if (activity.status === "processing") {
+      const config = require("../config/config");
+      const Redis = require("ioredis");
+      const redis = new Redis({
+        host: config.REDIS_HOST,
+        port: config.REDIS_PORT
+      });
+      await redis.set(`cancel:${activityId}`, "true", "EX", 3600); // Expire in 1 hour
+      console.log(`Cancellation signal sent for Activity ${activityId}`);
+    }
+
     // Delete ALL activities for this file (permanent delete)
     if (activity.fileName) {
       await Activity.destroy({
