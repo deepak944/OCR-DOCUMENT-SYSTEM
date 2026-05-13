@@ -60,7 +60,6 @@ function UploadZone({ setResult, setProcessedFile, setIsLoading, onUploadComplet
     const formData = new FormData()
     formData.append("file", selectedFile)
     
-    // Get language from localStorage and add to request
     const language = localStorage.getItem("texttrack-lang") || "en"
     formData.append("language", language)
 
@@ -71,25 +70,71 @@ function UploadZone({ setResult, setProcessedFile, setIsLoading, onUploadComplet
       if (setIsLoading) setIsLoading(true)
       if (setResult) setResult(null)
 
-      // Real upload progress from axios (bytes actually sent over the network)
       const onUploadProgress = (progressEvent) => {
         if (progressEvent.total) {
           const pct = Math.round((progressEvent.loaded / progressEvent.total) * 90)
-          setUploadProgress(pct) // goes 0→90% during actual upload
+          setUploadProgress(pct)
         }
       }
 
       try {
         const res = await uploadFile(formData, onUploadProgress)
-        setUploadProgress(100)
-        setUploadStatus("success")
+        
+        // Handle asynchronous processing
+        if (res.data.status === "processing") {
+          const activityId = res.data.activityId;
+          setUploadProgress(95); // Move to 95% while waiting for worker
+          
+          // Start polling
+          const pollStatus = async () => {
+            try {
+              const statusRes = await getActivityDetails(activityId);
+              const activity = statusRes.data;
 
-        if (setResult) setResult(res.data)
-        if (setProcessedFile) setProcessedFile(selectedFile)
-        saveResultToCache(selectedFile.name, res.data)
+              if (activity.status === "success") {
+                const ocrData = activity.metadata?.documentData;
+                setUploadProgress(100);
+                setUploadStatus("success");
+                
+                if (setResult) setResult(ocrData);
+                if (setProcessedFile) setProcessedFile(selectedFile);
+                saveResultToCache(selectedFile.name, ocrData);
+                if (onUploadComplete) onUploadComplete(ocrData, selectedFile.name);
+                
+                setIsUploading(false);
+                if (setIsLoading) setIsLoading(false);
+                return true;
+              } else if (activity.status === "failed") {
+                setError(activity.error || "Processing failed.");
+                setUploadStatus("error");
+                setIsUploading(false);
+                if (setIsLoading) setIsLoading(false);
+                return true;
+              }
+              return false; // Continue polling
+            } catch (err) {
+              console.error("Polling error:", err);
+              return false;
+            }
+          };
 
-        if (onUploadComplete) {
-          onUploadComplete(res.data, selectedFile.name)
+          const pollInterval = setInterval(async () => {
+            const isDone = await pollStatus();
+            if (isDone) {
+              clearInterval(pollInterval);
+            }
+          }, 3000);
+
+        } else {
+          // Fallback for synchronous results
+          setUploadProgress(100)
+          setUploadStatus("success")
+          if (setResult) setResult(res.data)
+          if (setProcessedFile) setProcessedFile(selectedFile)
+          saveResultToCache(selectedFile.name, res.data)
+          if (onUploadComplete) onUploadComplete(res.data, selectedFile.name)
+          setIsUploading(false)
+          if (setIsLoading) setIsLoading(false)
         }
       } catch (err) {
         const apiError = err?.response?.data?.error || err?.response?.data?.detail
@@ -97,8 +142,10 @@ function UploadZone({ setResult, setProcessedFile, setIsLoading, onUploadComplet
         setUploadStatus("error")
         if (setResult) setResult(null)
         if (setProcessedFile) setProcessedFile(null)
+        setIsUploading(false)
+        if (setIsLoading) setIsLoading(false)
       }
-    } finally {
+    } catch (err) {
       setIsUploading(false)
       if (setIsLoading) setIsLoading(false)
     }

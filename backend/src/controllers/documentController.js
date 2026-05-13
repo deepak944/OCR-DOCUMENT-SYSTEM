@@ -39,29 +39,35 @@ exports.uploadDocument = async (req, res) => {
     }
 
     const filePath = req.file.path;
-    const language = req.body.language || "en"; // Get language from request
+    const language = req.body.language || "en";
 
-    const result = await processDocument(filePath, language);
-
-    const archiveInfo = archiveUploadedDocument(filePath, req.file.originalname);
-
-    // Track activity
-    await Activity.create({
+    // Track activity as processing
+    const activity = await Activity.create({
       userId: req.user.id,
       action: "OCR_PROCESS",
       fileName: req.file.originalname,
       fileSize: req.file.size,
-      status: "success",
+      status: "processing",
       metadata: {
-        documentData: result,
-        historyContext: archiveInfo,
         language: language,
+        filePath: filePath,
       },
     });
 
+    // Add job to Redis queue
+    const { addOCRJob } = require("../queues/ocrQueue");
+    await addOCRJob({
+      activityId: activity.id,
+      filePath: filePath,
+      fileName: req.file.originalname,
+      language: language,
+      userId: req.user.id
+    });
+
     res.json({
-      message: "OCR processing completed",
-      data: result
+      message: "OCR processing started in background",
+      activityId: activity.id,
+      status: "processing"
     });
 
   } catch (error) {
@@ -99,7 +105,7 @@ exports.uploadDocument = async (req, res) => {
     });
 
   } finally {
-    removeFileIfExists(req.file?.path);
+    // File deletion deferred to background worker
   }
 };
 

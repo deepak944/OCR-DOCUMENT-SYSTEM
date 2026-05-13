@@ -29,7 +29,7 @@ const Activity = sequelize.define('Activity', {
     allowNull: true,
   },
   status: {
-    type: DataTypes.ENUM('success', 'failed'),
+    type: DataTypes.ENUM('success', 'failed', 'processing'),
     allowNull: false,
   },
   error: {

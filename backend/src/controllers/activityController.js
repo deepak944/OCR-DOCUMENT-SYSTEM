@@ -153,9 +153,49 @@ const deleteActivity = async (req, res) => {
   }
 };
 
+const updateActivityStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, metadata, error } = req.body;
+
+    const activity = await Activity.findByPk(id);
+    if (!activity) {
+      return res.status(404).json({ error: "Activity not found" });
+    }
+
+    const updateData = { status, error };
+    if (metadata) {
+      updateData.metadata = { ...activity.metadata, ...metadata };
+    }
+
+    // If success, handle archiving
+    if (status === "success") {
+      const { archiveUploadedDocument } = require("../services/documentArchiveService");
+      const fs = require("fs");
+      const filePath = activity.metadata?.filePath; // We should have stored this
+
+      // We need the original filename, which is in activity.fileName
+      if (filePath && fs.existsSync(filePath)) {
+        const archiveInfo = archiveUploadedDocument(filePath, activity.fileName);
+        updateData.metadata.historyContext = archiveInfo;
+        
+        // Clean up original file
+        fs.unlink(activity.metadata.filePath, () => {});
+      }
+    }
+
+    await activity.update(updateData);
+    res.json({ message: "Activity updated successfully" });
+  } catch (error) {
+    console.error("Update activity status error:", error);
+    res.status(500).json({ error: "Failed to update activity status" });
+  }
+};
+
 module.exports = {
   deleteActivity,
   downloadWordFromHistory,
   getActivityDetails,
   getUserActivities,
+  updateActivityStatus,
 };

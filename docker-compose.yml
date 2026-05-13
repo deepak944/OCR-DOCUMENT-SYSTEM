@@ -11,7 +11,20 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: ocr-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -28,18 +41,47 @@ services:
       - OCR_MAX_SIDE=1600
       - OCR_ENABLE_PREPROCESSING=false
       - MAX_UPLOAD_BYTES=524288000
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     ports:
       - "8000:8000"
     volumes:
       - easyocr-cache:/root/.EasyOCR
+      - uploads-data:/app/uploads
     mem_limit: 8g
     memswap_limit: 8g
+    depends_on:
+      redis:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" ]
       interval: 15s
       timeout: 10s
       retries: 10
       start_period: 180s
+
+  ai-worker:
+    image: ${DOCKERHUB_USERNAME:-local}/ocr-ai-worker:${IMAGE_TAG:-latest}
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: ocr-ai-worker
+    command: python -m app.worker
+    environment:
+      - OCR_CPU_THREADS=2
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - BACKEND_URL=http://backend:5000
+    volumes:
+      - easyocr-cache:/root/.EasyOCR
+      - uploads-data:/app/uploads
+    mem_limit: 8g
+    memswap_limit: 8g
+    depends_on:
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_started
 
   backend:
     image: ${DOCKERHUB_USERNAME:-local}/ocr-backend:${IMAGE_TAG:-latest}
@@ -61,13 +103,19 @@ services:
       - NODE_ENV=production
       - REQUEST_TIMEOUT=1800000
       - OCR_TIMEOUT_MS=1800000
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     depends_on:
       postgres:
         condition: service_healthy
       ai-service:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     ports:
       - "5000:5000"
+    volumes:
+      - uploads-data:/app/uploads
     env_file:
       - ./backend/.env
 
@@ -87,3 +135,5 @@ services:
 volumes:
   postgres-data:
   easyocr-cache:
+  redis-data:
+  uploads-data:
