@@ -36,7 +36,7 @@ function Sidebar({ isCollapsed, onToggleCollapse }) {
 
   useEffect(() => {
     if (isAuthenticated) fetchRecentDocs()
-    
+
     // Listen for updates from other pages (like History)
     const handleUpdate = () => fetchRecentDocs();
     window.addEventListener("activity-updated", handleUpdate);
@@ -369,7 +369,7 @@ function Sidebar({ isCollapsed, onToggleCollapse }) {
                       <Github size={16} /> GitHub
                       <ExternalLink size={12} style={{ marginLeft: "auto" }} />
                     </a>
-                    <a href="tel:+91XXXXXXXXXX" className="sidebar-profile-link">
+                    <a href="tel:+919353046405" className="sidebar-profile-link">
                       <Phone size={16} /> Contact
                       <ExternalLink size={12} style={{ marginLeft: "auto" }} />
                     </a>

@@ -159,102 +159,67 @@ const forgotPassword = async (req, res) => {
       return res.status(400).json({ error: "Email is required" });
     }
 
-    const user = await User.findOne({ where: { email: email.toLowerCase() } });
-    if (!user) {
-      // For security, don't reveal if user exists
+    const admin = require("firebase-admin");
+    const { sendPasswordResetEmail } = require("../utils/emailService");
+
+    if (!admin.apps.length) {
+      return res.status(500).json({ error: "Authentication system not ready." });
+    }
+
+    // Check if user exists in Firebase
+    try {
+      await admin.auth().getUserByEmail(email);
+    } catch (error) {
+      // User doesn't exist in Firebase, but for security we return success message
       return res.json({ message: "If an account exists with that email, a reset link has been sent." });
     }
 
-    // Generate token
-    const crypto = require("crypto");
-    const token = crypto.randomBytes(32).toString("hex");
-    const expiry = new Date(Date.now() + 3600000); // 1 hour
+    // Generate Firebase password reset link
+    const actionCodeSettings = {
+      url: 'http://localhost:5173/login',
+      handleCodeInApp: false
+    };
+    
+    const resetLink = await admin.auth().generatePasswordResetLink(email, actionCodeSettings);
 
-    await user.update({
-      resetPasswordToken: token,
-      resetPasswordExpires: expiry
-    });
-
-    const resetLink = `http://localhost:5173/reset-password?token=${token}`;
-
-    // Send real email if configured, otherwise fallback to console
-    if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-      const nodemailer = require("nodemailer");
-      const transporter = nodemailer.createTransport({
-        service: process.env.EMAIL_SERVICE || "gmail",
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS,
-        },
-      });
-
-      const mailOptions = {
-        from: `TextTrack AI <${process.env.EMAIL_USER}>`,
-        to: user.email,
-        subject: "Password Reset Request - TextTrack AI",
-        html: `
-          <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
-            <h2 style="color: #0ea5e9;">TextTrack AI</h2>
-            <p>You requested a password reset for your account.</p>
-            <p>Please click the button below to set a new password. This link will expire in 1 hour.</p>
-            <a href="${resetLink}" style="display: inline-block; padding: 12px 24px; background-color: #0ea5e9; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Reset Password</a>
-            <p style="margin-top: 20px; font-size: 14px; color: #64748b;">If you did not request this, please ignore this email.</p>
-            <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
-            <p style="font-size: 12px; color: #94a3b8;">TextTrack AI - Advanced Document Intelligence</p>
-          </div>
-        `,
-      };
-
-      await transporter.sendMail(mailOptions);
-      console.log(`✅ Reset email sent to ${user.email}`);
-    } else {
-      // Simulation fallback
-      console.log("\n--- SIMULATED EMAIL (No credentials found) ---");
-      console.log(`To: ${user.email}`);
-      console.log(`Link: ${resetLink}`);
-      console.log("------------------------\n");
-    }
+    // Send our PREMIUM custom email!
+    await sendPasswordResetEmail(email, resetLink);
 
     res.json({ message: "If an account exists with that email, a reset link has been sent." });
   } catch (error) {
-    console.error("Forgot password error:", error);
-    res.status(500).json({ error: "Failed to process request" });
+    console.error("[Forgot Password] Error:", error);
+    res.status(500).json({ error: "Failed to process request." });
   }
 };
 
 const resetPassword = async (req, res) => {
   try {
-    const { token, password } = req.body;
-    if (!token || !password) {
-      return res.status(400).json({ error: "Token and password are required" });
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: "Email and new password are required" });
     }
 
-    if (password.length < 6) {
-      return res.status(400).json({ error: "Password must be at least 6 characters" });
-    }
+    const admin = require("firebase-admin");
+    const { sendPasswordResetSuccessEmail } = require("../utils/emailService");
 
-    const { Op } = require("sequelize");
-    const user = await User.findOne({
-      where: {
-        resetPasswordToken: token,
-        resetPasswordExpires: { [Op.gt]: new Date() }
-      }
+    // Update Firebase password
+    const userRecord = await admin.auth().getUserByEmail(email);
+    await admin.auth().updateUser(userRecord.uid, {
+      password: password
     });
 
-    if (!user) {
-      return res.status(400).json({ error: "Invalid or expired reset token" });
+    // Update local DB too for consistency (though Firebase is the source of truth)
+    const user = await User.findOne({ where: { email: email.toLowerCase() } });
+    if (user) {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      await user.update({
+        password: hashedPassword,
+        plainPassword: password
+      });
     }
 
-    // Hash new password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Update user and clear token
-    await user.update({
-      password: hashedPassword,
-      plainPassword: password, // For development visibility
-      resetPasswordToken: null,
-      resetPasswordExpires: null
-    });
+    // Send CONGRATULATIONS email!
+    await sendPasswordResetSuccessEmail(email);
 
     res.json({ message: "Password reset successful. You can now log in." });
   } catch (error) {

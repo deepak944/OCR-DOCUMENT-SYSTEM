@@ -45,3 +45,9 @@ Thumbs.db
 .idea/
 *.swp
 
+# Security / Keys
+serviceAccountKey.json
+**/*.json.key
+**/*.pem
+**/*.p12
+

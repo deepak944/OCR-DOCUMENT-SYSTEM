@@ -8,6 +8,7 @@ RUN npm install --omit=dev
 
 COPY server.js ./
 COPY src ./src
+COPY *.json ./
 
 EXPOSE 5000
 

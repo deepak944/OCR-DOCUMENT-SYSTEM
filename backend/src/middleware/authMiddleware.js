@@ -1,12 +1,26 @@
 const admin = require("firebase-admin");
+const path = require("path");
+const fs = require("fs");
 const { User } = require("../models");
 const { sendWelcomeEmail } = require("../utils/emailService");
 
-// Initialize Firebase Admin (Only needs Project ID to verify tokens)
+// Path to service account key
+const serviceAccountPath = path.join(__dirname, "../../serviceAccountKey.json");
+
+// Initialize Firebase Admin
 if (!admin.apps.length) {
-  admin.initializeApp({
-    projectId: "ocr-project-f7d37"
-  });
+  if (fs.existsSync(serviceAccountPath)) {
+    const serviceAccount = require(serviceAccountPath);
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+    console.log("✅ Firebase Admin initialized with Service Account");
+  } else {
+    admin.initializeApp({
+      projectId: "ocr-project-f7d37" // Replace with your actual ID if different
+    });
+    console.warn("⚠️ Firebase Admin initialized without Service Account (Some features like Password Reset will fail)");
+  }
 }
 
 const authMiddleware = async (req, res, next) => {
