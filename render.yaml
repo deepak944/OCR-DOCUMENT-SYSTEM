@@ -1,0 +1,98 @@
+services:
+  # 1. PostgreSQL Database
+  - type: database
+    name: ocr-db
+    plan: free
+    databaseName: ocr_system
+    user: postgres
+
+  # 2. Redis Message Broker
+  - type: redis
+    name: ocr-redis
+    plan: free
+    ipAllowList: [] # Only allow internal connections
+
+  # 3. AI OCR Service (API)
+  - type: web
+    name: ocr-ai-service
+    env: docker
+    plan: free
+    dockerContext: ./ai-service
+    dockerfilePath: ./ai-service/Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: REDIS_HOST
+        fromRedisName: ocr-redis
+        property: host
+      - key: REDIS_PORT
+        fromRedisName: ocr-redis
+        property: port
+      - key: MAX_UPLOAD_BYTES
+        value: 524288000
+
+  # 4. AI Background Worker (Processing)
+  - type: worker
+    name: ocr-ai-worker
+    env: docker
+    plan: free
+    dockerContext: ./ai-service
+    dockerfilePath: ./ai-service/Dockerfile
+    dockerCommand: python -m app.worker
+    envVars:
+      - key: REDIS_HOST
+        fromRedisName: ocr-redis
+        property: host
+      - key: REDIS_PORT
+        fromRedisName: ocr-redis
+        property: port
+      - key: BACKEND_URL
+        fromService:
+          type: web
+          name: ocr-backend
+          property: host
+
+  # 5. Node.js Backend API
+  - type: web
+    name: ocr-backend
+    env: docker
+    plan: free
+    dockerContext: ./backend
+    dockerfilePath: ./backend/Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ocr-db
+          property: connectionString
+      - key: REDIS_URL
+        fromRedisName: ocr-redis
+        property: connectionString
+      - key: AI_SERVICE_URL
+        fromService:
+          type: web
+          name: ocr-ai-service
+          property: host
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASS
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        value: ocr-project-f7d37
+
+  # 6. React Frontend (Nginx)
+  - type: web
+    name: ocr-frontend
+    env: docker
+    plan: free
+    dockerContext: ./frontend
+    dockerfilePath: ./frontend/Dockerfile
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: ocr-backend
+          property: host

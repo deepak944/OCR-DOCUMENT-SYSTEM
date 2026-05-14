@@ -1,10 +1,12 @@
 const Redis = require('ioredis');
 const config = require('../config/config');
 
-const redis = new Redis({
-  host: config.REDIS_HOST,
-  port: config.REDIS_PORT
-});
+const redis = process.env.REDIS_URL 
+  ? new Redis(process.env.REDIS_URL)
+  : new Redis({
+      host: config.REDIS_HOST,
+      port: config.REDIS_PORT
+    });
 
 const addOCRJob = async (jobData) => {
   // Push job to a simple Redis list
