@@ -94,7 +94,8 @@ def _prepare_image_for_ocr(image_path):
     h, w = gray.shape
     if max(h, w) < 1800:
         gray = cv2.resize(gray, None, fx=1.3, fy=1.3, interpolation=cv2.INTER_CUBIC)
-    denoised = cv2.fastNlMeansDenoising(gray, None, 15, 7, 21)
+    # Use a fast bilateral filter to preserve edges and reduce noise instead of extremely slow non-local means denoising
+    denoised = cv2.bilateralFilter(gray, 9, 75, 75)
     thresh = cv2.adaptiveThreshold(
         denoised, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 15
     )

@@ -97,6 +97,7 @@ const Login = () => {
               type="password" id="password" value={password}
               onChange={(e) => setPassword(e.target.value)}
               required placeholder="Enter your password" disabled={loading}
+              autocomplete="current-password"
             />
           </div>
           <button type="submit" className="btn btn-primary auth-submit-btn" disabled={loading}>

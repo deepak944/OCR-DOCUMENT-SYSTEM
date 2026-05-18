@@ -3,7 +3,8 @@ const path = require("path");
 const fs = require("fs");
 
 const uploadsDir = path.join(__dirname, "../../uploads");
-const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {

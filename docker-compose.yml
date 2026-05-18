@@ -36,12 +36,15 @@ services:
       dockerfile: Dockerfile
     container_name: ocr-ai-service
     environment:
-      - OCR_CPU_THREADS=2
+      - OCR_CPU_THREADS=4
       - OCR_FALLBACK_DPI=150
       - OCR_MAX_SIDE=1600
       - OCR_ENABLE_PREPROCESSING=false
-      - MAX_UPLOAD_BYTES=524288000
+      - DISABLE_OCR_FALLBACK=true
+      - DISABLE_CAMELOT=true
+      - MAX_UPLOAD_BYTES=10485760
       - REDIS_HOST=redis
+
       - REDIS_PORT=6379
     ports:
       - "8000:8000"
@@ -68,7 +71,12 @@ services:
     container_name: ocr-ai-worker
     command: python -m app.worker
     environment:
-      - OCR_CPU_THREADS=2
+      - OCR_CPU_THREADS=4
+      - OCR_FALLBACK_DPI=150
+      - OCR_MAX_SIDE=1600
+      - OCR_ENABLE_PREPROCESSING=false
+      - DISABLE_OCR_FALLBACK=true
+      - DISABLE_CAMELOT=true
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - BACKEND_URL=http://backend:5000

@@ -6,9 +6,10 @@ import {
   CloudUpload, FileText, X, CheckCircle, AlertCircle, Loader2
 } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
-import { uploadFile, saveResultToCache } from "../services/api"
+import { uploadFile, saveResultToCache, getActivityDetails } from "../services/api"
 
-const MAX_FILE_SIZE = 500 * 1024 * 1024 // 500MB
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 
 function UploadZone({ setResult, setProcessedFile, setIsLoading, onUploadComplete }) {
   const { isAuthenticated } = useAuth()
@@ -29,7 +30,7 @@ function UploadZone({ setResult, setProcessedFile, setIsLoading, onUploadComplet
     if (rejectedFiles.length > 0) {
       const rejection = rejectedFiles[0]
       if (rejection.errors[0]?.code === "file-too-large") {
-        setError("File exceeds 500MB limit.")
+        setError("File exceeds 10MB limit.")
       } else if (rejection.errors[0]?.code === "file-invalid-type") {
         setError("Only PDF files are supported.")
       } else {
@@ -197,7 +198,7 @@ function UploadZone({ setResult, setProcessedFile, setIsLoading, onUploadComplet
           <p className="upload-subtitle">
             Drag & drop a PDF file here, or click to browse
           </p>
-          <p className="upload-hint">Supports PDF files up to 500MB</p>
+          <p className="upload-hint">Supports PDF files up to 10MB</p>
         </motion.div>
       </motion.div>
 

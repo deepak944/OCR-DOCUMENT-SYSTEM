@@ -43,7 +43,9 @@ function Home() {
     { icon: Upload, title: "Upload PDF", desc: "Drag & drop to extract text", path: "/upload" },
     { icon: Brain, title: "AI-Powered OCR", desc: "PaddleOCR + Gemini AI", path: "/upload" },
     { icon: MessageSquare, title: "Chat with Docs", desc: "Ask anything about your PDF", path: "/ai-chat" },
+    { icon: FileText, title: "PDF to AutoCAD", desc: "Premium CAD DXF vectorization", path: "/" },
   ]
+
 
   // Only show features/upload when no document is loaded
   const showWelcome = !activeResult

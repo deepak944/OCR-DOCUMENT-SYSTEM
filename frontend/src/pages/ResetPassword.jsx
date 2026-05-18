@@ -39,8 +39,8 @@ const ResetPassword = () => {
         {error && <div className="auth-error-new">{error}</div>}
         {!token && <div className="auth-error-new">Invalid or missing reset token.</div>}
         <form onSubmit={handleSubmit} className="auth-form-new">
-          <div><label htmlFor="password">New Password</label><input type="password" id="password" value={password} onChange={(e) => setPassword(e.target.value)} required placeholder="Min 6 characters" disabled={loading || !token} /></div>
-          <div><label htmlFor="confirmPassword">Confirm</label><input type="password" id="confirmPassword" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required placeholder="Confirm password" disabled={loading || !token} /></div>
+          <div><label htmlFor="password">New Password</label><input type="password" id="password" value={password} onChange={(e) => setPassword(e.target.value)} required placeholder="Min 6 characters" disabled={loading || !token} autocomplete="new-password" /></div>
+          <div><label htmlFor="confirmPassword">Confirm</label><input type="password" id="confirmPassword" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required placeholder="Confirm password" disabled={loading || !token} autocomplete="new-password" /></div>
           <button type="submit" className="btn btn-primary auth-submit-btn" disabled={loading || !token}>{loading ? "Resetting..." : "Reset Password"}</button>
         </form>
         <div className="auth-footer-new"><Link to="/login">Back to Sign In</Link></div>

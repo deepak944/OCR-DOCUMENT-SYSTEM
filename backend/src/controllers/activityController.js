@@ -31,6 +31,27 @@ const getUserActivities = async (req, res) => {
     const userId = req.user.id;
     const limit = parseInt(req.query.limit, 10) || 50;
 
+    // Automatically fail stale "processing" activities that were started > 5 minutes ago
+    // (since if they were interrupted by worker crashes, server restarts, or page reloads
+    // and stayed stuck in processing, they are no longer running).
+    const { Op } = require("sequelize");
+    const staleTime = new Date(Date.now() - 5 * 60 * 1000); // 5 minutes ago
+    await Activity.update(
+      {
+        status: "failed",
+        error: "Processing was interrupted or timed out."
+      },
+      {
+        where: {
+          userId,
+          status: "processing",
+          createdAt: {
+            [Op.lt]: staleTime
+          }
+        }
+      }
+    );
+
     const activities = await Activity.findAll({
       where: { userId },
       order: [["createdAt", "DESC"]],
@@ -56,6 +77,26 @@ const getActivityDetails = async (req, res) => {
   try {
     const userId = req.user.id;
     const activityId = req.params.id;
+
+    // Check if this specific activity is processing and has become stale
+    const { Op } = require("sequelize");
+    const staleTime = new Date(Date.now() - 5 * 60 * 1000); // 5 minutes ago
+    await Activity.update(
+      {
+        status: "failed",
+        error: "Processing was interrupted or timed out."
+      },
+      {
+        where: {
+          id: activityId,
+          userId,
+          status: "processing",
+          createdAt: {
+            [Op.lt]: staleTime
+          }
+        }
+      }
+    );
 
     const activity = await getActivityForUser(userId, activityId);
 

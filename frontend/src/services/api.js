@@ -135,6 +135,14 @@ export const downloadWordExport = (documentData, documentName, language = "en") 
     { responseType: "blob" }
   )
 
+export const downloadCadExport = (documentData, documentName, language = "en") =>
+  API.post(
+    "/api/ai/export-cad",
+    { documentData: compactDocumentPayload(documentData, { includeImageData: false }), documentName, language },
+    { responseType: "blob" }
+  )
+
+
 const RESULT_CACHE_KEY = "ocr_result_cache"
 const MAX_CACHED = 20
 const ACTIVE_DOCUMENT_KEY = "texttrack_ai_active_document"

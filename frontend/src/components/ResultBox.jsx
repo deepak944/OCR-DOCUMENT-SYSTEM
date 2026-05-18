@@ -6,7 +6,9 @@ import {
   downloadWordExport,
   downloadWordFromHistory,
   saveActiveDocument,
+  downloadCadExport,
 } from "../services/api"
+
 
 function sanitizeDocumentForAssistant(documentData) {
   if (!documentData || typeof documentData !== "object") {
@@ -130,7 +132,9 @@ function ResultBox({
   const [activeTab, setActiveTab] = useState("text")
   const [isDownloading, setIsDownloading] = useState(false)
   const [isDownloadingExcel, setIsDownloadingExcel] = useState(false)
+  const [isDownloadingCad, setIsDownloadingCad] = useState(false)
   const [downloadError, setDownloadError] = useState("")
+
 
   const payload = result?.data || result
   const extractedImages = Array.isArray(payload?.images) ? payload.images : []
@@ -245,7 +249,42 @@ function ResultBox({
     }
   }
 
+  const handleCadDownload = async () => {
+    if (!payload) {
+      setDownloadError("Upload a PDF first, then download the AutoCAD file.")
+      return
+    }
+
+    try {
+      setIsDownloadingCad(true)
+      setDownloadError("")
+
+      const resolvedDocumentName = documentName || processedFile?.name || "OCR Document"
+      const response = await downloadCadExport(payload, resolvedDocumentName)
+      const contentType = response.headers["content-type"] || "image/vnd.dxf"
+      const disposition = response.headers["content-disposition"]
+      const downloadedName = getFileNameFromDisposition(disposition)
+      const fallbackName = `${resolvedDocumentName.replace(/\.pdf$/i, "") || "document"}.dxf`
+      const blob = new Blob([response.data], { type: contentType })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement("a")
+
+      link.href = url
+      link.download = downloadedName || fallbackName
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      const apiError = await getDownloadErrorMessage(error, "AutoCAD DXF download failed. Please try again.")
+      setDownloadError(apiError)
+    } finally {
+      setIsDownloadingCad(false)
+    }
+  }
+
   const handleTalkWithAI = () => {
+
     if (!payload) {
       return
     }
@@ -316,6 +355,9 @@ function ResultBox({
           <button onClick={handleTalkWithAI} className="primaryBtn">
             Talk with AI
           </button>
+          <button onClick={handleCadDownload} disabled={isDownloadingCad} className="cadBtn">
+            {isDownloadingCad ? "Preparing CAD..." : "Download CAD"}
+          </button>
           <button onClick={handleExcelDownload} disabled={isDownloadingExcel}>
             {isDownloadingExcel ? "Preparing Excel..." : "Download Excel"}
           </button>
@@ -323,6 +365,7 @@ function ResultBox({
             {isDownloading ? "Preparing..." : "Download Word"}
           </button>
         </div>
+
       </div>
 
       {hasRestoredTimeline && (

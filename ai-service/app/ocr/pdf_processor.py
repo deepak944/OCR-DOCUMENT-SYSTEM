@@ -99,20 +99,16 @@ def extract_embedded_images(pdf_path, max_inline_bytes=DEFAULT_MAX_INLINE_IMAGE_
                 xref = image_info[0]
 
                 try:
-                    # Create a Pixmap to correctly handle CMYK, masks, and colorspaces
-                    pix = fitz.Pixmap(document, xref)
-                    
-                    # Convert to RGB if it's CMYK or other complex colorspace
-                    if pix.n - pix.alpha > 3:
-                        pix = fitz.Pixmap(fitz.csRGB, pix)
-                        
-                    # Extract PNG bytes
-                    raw_bytes = pix.tobytes("png")
-                    extension = "png"
-                    
-                    # Free the pixmap
-                    pix = None
-                    
+                    # Extract native image directly using high-performance PyMuPDF API
+                    image_dict = document.extract_image(xref)
+                    if not image_dict:
+                        continue
+
+                    raw_bytes = image_dict["image"]
+                    extension = image_dict["ext"]
+                    width = image_dict["width"]
+                    height = image_dict["height"]
+                    mime_type = _mime_type_from_extension(extension)
                 except Exception:
                     logging.exception(
                         "Failed to extract image xref=%s on page %s from %s",
@@ -125,7 +121,6 @@ def extract_embedded_images(pdf_path, max_inline_bytes=DEFAULT_MAX_INLINE_IMAGE_
                 if not raw_bytes:
                     continue
 
-                mime_type = "image/png"
                 image_size = len(raw_bytes)
 
                 image_entry = {
@@ -134,8 +129,8 @@ def extract_embedded_images(pdf_path, max_inline_bytes=DEFAULT_MAX_INLINE_IMAGE_
                     "xref": xref,
                     "extension": extension,
                     "mime_type": mime_type,
-                    "width": fitz.Pixmap(document, xref).width if not getattr(document, '_is_closed', False) else 0,
-                    "height": fitz.Pixmap(document, xref).height if not getattr(document, '_is_closed', False) else 0,
+                    "width": width,
+                    "height": height,
                     "size_bytes": image_size,
                     "inline_preview_available": image_size <= max_inline_bytes,
                     "data_url": None
@@ -150,3 +145,4 @@ def extract_embedded_images(pdf_path, max_inline_bytes=DEFAULT_MAX_INLINE_IMAGE_
         document.close()
 
     return extracted_images
+

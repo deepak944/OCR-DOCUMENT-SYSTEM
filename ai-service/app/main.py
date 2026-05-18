@@ -11,13 +11,16 @@ from fastapi.concurrency import run_in_threadpool
 
 from app.services.document_services import process_document
 from app.services.word_export_service import convert_extracted_data_to_word_doc, convert_pdf_to_word_doc
-from app.config import UPLOAD_FOLDER, WORD_EXPORT_FOLDER
+from app.services.cad_export_service import convert_extracted_data_to_cad
+from app.config import UPLOAD_FOLDER, WORD_EXPORT_FOLDER, CAD_EXPORT_FOLDER
+
 
 app = FastAPI(title="OCR AI Service")
 
 # Upload guard defaults (can be overridden via env vars)
-MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(500 * 1024 * 1024)))  # 500MB default (match frontend)
-UPLOAD_PROGRESS_CHUNK_BYTES = int(os.getenv("UPLOAD_PROGRESS_CHUNK_BYTES", str(4 * 1024 * 1024)))  # 4MB default
+MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(10 * 1024 * 1024)))  # 10MB default (match frontend)
+UPLOAD_PROGRESS_CHUNK_BYTES = int(os.getenv("UPLOAD_PROGRESS_CHUNK_BYTES", str(2 * 1024 * 1024)))  # 2MB default
+
 
 # In-memory result cache keyed by SHA-256 file hash (max 50 entries, FIFO eviction)
 _ocr_cache: dict = {}
@@ -224,5 +227,44 @@ async def convert_ocr_json_to_word_api(payload: WordExportRequest, background_ta
         logging.exception("Failed to convert OCR JSON to Word %s", payload.document_name)
         raise HTTPException(status_code=500, detail=f"Failed to convert OCR data to Word: {str(exc)}")
 
+
+class CadExportRequest(BaseModel):
+    document_data: dict
+    document_name: str = "OCR Document"
+
+
+@app.post("/convert-ocr-json-to-cad")
+async def convert_ocr_json_to_cad_api(payload: CadExportRequest, background_tasks: BackgroundTasks):
+    cad_file_path = None
+
+    try:
+        if not isinstance(payload.document_data, dict):
+            raise HTTPException(status_code=422, detail="document_data must be an object")
+
+        os.makedirs(CAD_EXPORT_FOLDER, exist_ok=True)
+
+        original_stem = Path(payload.document_name or "document").stem or "document"
+        cad_file_name = f"{original_stem}-{uuid4().hex[:8]}.dxf"
+        cad_file_path = os.path.join(CAD_EXPORT_FOLDER, cad_file_name)
+
+        await run_in_threadpool(convert_extracted_data_to_cad, payload.document_data, cad_file_path)
+
+        response = FileResponse(
+            path=cad_file_path,
+            media_type="image/vnd.dxf",
+            filename=f"{original_stem}.dxf"
+        )
+        background_tasks.add_task(_remove_file_if_exists, cad_file_path)
+        background_tasks.add_task(_remove_dir_if_empty, CAD_EXPORT_FOLDER)
+        return response
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logging.exception("Failed to convert OCR JSON to CAD %s", payload.document_name)
+        raise HTTPException(status_code=500, detail=f"Failed to convert OCR data to CAD: {str(exc)}")
+
+
 # Backward-compatible ASGI alias for commands using `app.main:main`.
 main = app
+

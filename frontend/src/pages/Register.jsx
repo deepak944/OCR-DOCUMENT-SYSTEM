@@ -51,8 +51,8 @@ const Register = () => {
         <form onSubmit={handleSubmit} className="auth-form-new">
           <div><label htmlFor="name">Full Name</label><input type="text" id="name" value={name} onChange={(e) => setName(e.target.value)} required placeholder="Enter your full name" disabled={loading} /></div>
           <div><label htmlFor="email">Email</label><input type="email" id="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="Enter your email" disabled={loading} /></div>
-          <div><label htmlFor="password">Password</label><input type="password" id="password" value={password} onChange={(e) => setPassword(e.target.value)} required placeholder="Min 6 characters" disabled={loading} /></div>
-          <div><label htmlFor="confirmPassword">Confirm Password</label><input type="password" id="confirmPassword" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required placeholder="Confirm password" disabled={loading} /></div>
+          <div><label htmlFor="password">Password</label><input type="password" id="password" value={password} onChange={(e) => setPassword(e.target.value)} required placeholder="Min 6 characters" disabled={loading} autocomplete="new-password" /></div>
+          <div><label htmlFor="confirmPassword">Confirm Password</label><input type="password" id="confirmPassword" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required placeholder="Confirm password" disabled={loading} autocomplete="new-password" /></div>
           <button type="submit" className="btn btn-primary auth-submit-btn" disabled={loading}>{loading ? "Creating..." : "Create Account"}</button>
         </form>
         <div className="auth-footer-new"><span style={{ color: "var(--text-tertiary)" }}>Already have an account?</span> <Link to="/login">Sign in</Link></div>

@@ -6,13 +6,15 @@ from app.ocr.pdf_processor import (
 from app.ocr.ocr_engine import run_ocr
 from app.ocr.native_text_extractor import extract_pdf_text_blocks
 from app.ocr.table_parser import extract_tables
-from app.config import IMAGE_FOLDER
+from app.config import IMAGE_FOLDER, DISABLE_OCR_FALLBACK, DISABLE_CAMELOT
 import logging
 import gc
 import os
 import re
 import shutil
 import numpy as np
+from concurrent.futures import ThreadPoolExecutor
+
 
 # --- Thresholds ---
 # A page must have fewer than these to trigger OCR fallback.
@@ -62,6 +64,8 @@ def _text_signal(blocks):
 
 
 def _should_try_ocr(native_blocks):
+    if DISABLE_OCR_FALLBACK:
+        return not native_blocks
     if not native_blocks:
         return True
     signal = _text_signal(native_blocks)
@@ -69,6 +73,7 @@ def _should_try_ocr(native_blocks):
         signal["words"] < MIN_NATIVE_WORDS_FOR_SKIP_OCR
         or signal["alnum_chars"] < MIN_NATIVE_ALNUM_CHARS_FOR_SKIP_OCR
     )
+
 
 
 def _prefer_ocr_blocks(native_blocks, ocr_blocks):
@@ -127,8 +132,6 @@ def _is_large_pdf(pdf_path, page_count):
 def process_document(pdf_path, cancel_check=None):
     pages = extract_pdf_text_blocks(pdf_path)
     page_count = len(pages)
-    request_dir = None
-    results = []
     failed_pages = 0
     ocr_page_count = 0
 
@@ -139,35 +142,31 @@ def process_document(pdf_path, cancel_check=None):
             page_count
         )
 
+    # Determine if we need to create request directory for OCR fallback
+    any_need_ocr = any(_should_try_ocr(p["blocks"]) for p in pages)
+    if any_need_ocr and not DISABLE_OCR_FALLBACK:
+        request_dir = create_request_image_dir(pdf_path)
+    else:
+        request_dir = None
+
     try:
-        for page in pages:
-            # Check if we should stop between pages
+        def process_single_page(page):
             if cancel_check and cancel_check():
-                logging.info("Cancellation requested during page loop. Stopping OCR.")
                 raise InterruptedError("Job cancelled by user")
 
             page_number = page["page_number"]
             native_blocks = page["blocks"]
-            blocks = native_blocks
 
-            # Skip OCR entirely once we've hit the per-document OCR page cap.
-            # For large PDFs with good native text, this is almost never triggered.
-            ocr_allowed = ocr_page_count < MAX_PAGES_FOR_OCR
-
-            if ocr_allowed and _should_try_ocr(native_blocks):
+            if not DISABLE_OCR_FALLBACK and _should_try_ocr(native_blocks):
                 image_path = None
                 try:
-                    if request_dir is None:
-                        request_dir = create_request_image_dir(pdf_path)
-
                     image_path = convert_pdf_page_to_image(pdf_path, page_number, request_dir)
                     ocr_blocks = run_ocr(image_path)
                     blocks = _prefer_ocr_blocks(native_blocks, ocr_blocks)
-                    ocr_page_count += 1
+                    return {"page_number": page_number, "blocks": blocks, "ocr_triggered": True, "failed": False}
                 except Exception:
                     logging.exception("OCR failed for page %s in %s", page_number, pdf_path)
-                    blocks = native_blocks
-                    failed_pages += 1
+                    return {"page_number": page_number, "blocks": native_blocks, "ocr_triggered": True, "failed": True}
                 finally:
                     if image_path and os.path.exists(image_path):
                         try:
@@ -175,15 +174,30 @@ def process_document(pdf_path, cancel_check=None):
                         except OSError:
                             pass
                     gc.collect()
+            else:
+                return {"page_number": page_number, "blocks": native_blocks, "ocr_triggered": False, "failed": False}
 
-            results.append({"page_number": page_number, "blocks": blocks})
+        # Run page extraction concurrently in a thread pool (max 4 concurrent workers)
+        max_workers = min(4, page_count) if page_count > 0 else 1
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            page_results = list(executor.map(process_single_page, pages))
+
+        # Reassemble the outputs in strict sequential order
+        results = []
+        for r in page_results:
+            results.append({"page_number": r["page_number"], "blocks": r["blocks"]})
+            if r["ocr_triggered"]:
+                ocr_page_count += 1
+                if r["failed"]:
+                    failed_pages += 1
 
         if results and failed_pages == len(results):
             logging.warning("OCR failed on all pages for %s; returning partial response", pdf_path)
 
+
         # Table extraction — skip Camelot for large PDFs, use OCR-block heuristic only
         try:
-            if large_pdf:
+            if large_pdf or DISABLE_CAMELOT:
                 from app.ocr.table_parser import _extract_tables_from_ocr_blocks
                 tables = []
                 for page in results:
@@ -193,6 +207,7 @@ def process_document(pdf_path, cancel_check=None):
                 tables.sort(key=lambda t: (t.get("page_number") or 0, t.get("id") or ""))
             else:
                 tables = extract_tables(pdf_path, results)
+
         except Exception as exc:
             logging.warning("Table extraction failed for %s: %s", pdf_path, exc)
             tables = []

@@ -105,4 +105,29 @@ async function convertOcrDataToWord(documentData, documentName) {
   });
 }
 
-module.exports = { processDocument, convertPdfToWord, convertOcrDataToWord };
+async function convertOcrDataToCad(documentData, documentName) {
+  return withRetry(async () => {
+    const response = await axios.post(
+      `${AI_SERVICE_URL}/convert-ocr-json-to-cad`,
+      {
+        document_data: documentData,
+        document_name: documentName || "OCR Document",
+      },
+      {
+        responseType: "arraybuffer",
+        timeout: OCR_TIMEOUT_MS,
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity,
+      }
+    );
+    return response;
+  });
+}
+
+module.exports = {
+  processDocument,
+  convertPdfToWord,
+  convertOcrDataToWord,
+  convertOcrDataToCad,
+};
+

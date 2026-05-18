@@ -26,3 +26,5 @@ charset-normalizer==3.3.2
 chardet==5.2.0
 
 redis==5.2.1
+ezdxf==1.1.4
+

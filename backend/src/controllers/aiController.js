@@ -1,6 +1,6 @@
 const { generateDocumentAssistantResponse } = require("../services/geminiService");
 const { createExcelWorkbookBuffer } = require("../services/excelExportService");
-const { convertOcrDataToWord } = require("../services/aiService");
+const { convertOcrDataToWord, convertOcrDataToCad } = require("../services/aiService");
 const { Activity } = require("../models");
 
 exports.chatWithDocument = async (req, res) => {
@@ -197,3 +197,61 @@ exports.exportDocumentWord = async (req, res) => {
     });
   }
 };
+
+exports.exportDocumentCad = async (req, res) => {
+  const { documentData, documentName, language = "en" } = req.body;
+
+  if (!documentData || typeof documentData !== "object" || Array.isArray(documentData)) {
+    return res.status(400).json({
+      error: "documentData must be a JSON object",
+    });
+  }
+
+  const resolvedDocumentName = String(documentName || "OCR Document").trim() || "OCR Document";
+
+  try {
+    const response = await convertOcrDataToCad(documentData, resolvedDocumentName);
+
+    await Activity.create({
+      userId: req.user.id,
+      action: "CAD_EXPORT",
+      fileName: resolvedDocumentName,
+      status: "success",
+      metadata: {
+        source: "ocr-json",
+        pages: Array.isArray(documentData?.pages) ? documentData.pages.length : 0,
+        tables: Array.isArray(documentData?.tables) ? documentData.tables.length : 0,
+        language,
+      },
+    });
+
+    const contentType =
+      response.headers["content-type"] || "image/vnd.dxf";
+    const fileBaseName = resolvedDocumentName.replace(/\.pdf$/i, "") || "ocr-document";
+    const contentDisposition =
+      response.headers["content-disposition"] || `attachment; filename="${fileBaseName}.dxf"`;
+
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Content-Disposition", contentDisposition);
+    res.send(Buffer.from(response.data));
+  } catch (error) {
+    console.error("CAD OCR export failed:", error.message);
+
+    await Activity.create({
+      userId: req.user.id,
+      action: "CAD_EXPORT",
+      fileName: resolvedDocumentName,
+      status: "failed",
+      error: error.message,
+      metadata: {
+        source: "ocr-json",
+        language,
+      },
+    });
+
+    res.status(500).json({
+      error: "CAD download failed. Please try again.",
+    });
+  }
+};
+
