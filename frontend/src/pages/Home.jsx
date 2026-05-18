@@ -40,11 +40,12 @@ function Home() {
   }, [isAuthenticated])
 
   const features = [
-    { icon: Upload, title: "Upload PDF", desc: "Drag & drop to extract text", path: "/upload" },
-    { icon: Brain, title: "AI-Powered OCR", desc: "PaddleOCR + Gemini AI", path: "/upload" },
-    { icon: MessageSquare, title: "Chat with Docs", desc: "Ask anything about your PDF", path: "/ai-chat" },
-    { icon: FileText, title: "PDF to AutoCAD", desc: "Premium CAD DXF vectorization", path: "/" },
+    { icon: Upload, title: "Upload PDF", desc: "Drag & drop to extract text", path: "/upload", action: "upload" },
+    { icon: Brain, title: "AI-Powered OCR", desc: "PaddleOCR + Gemini AI", path: "/upload", action: "upload" },
+    { icon: MessageSquare, title: "Chat with Docs", desc: "Ask anything about your PDF", path: "/ai-chat", action: "navigate" },
+    { icon: FileText, title: "PDF to AutoCAD", desc: "Premium CAD DXF vectorization", path: "/", action: "upload" },
   ]
+
 
 
   // Only show features/upload when no document is loaded
@@ -137,12 +138,29 @@ function Home() {
             <div
               key={f.title}
               className="feature-card surface-card"
+              style={{ cursor: "pointer" }}
+              onClick={() => {
+                if (f.action === "upload") {
+                  const fileInput = document.querySelector('input[type="file"]');
+                  if (fileInput) {
+                    fileInput.click();
+                  } else {
+                    const uploadZone = document.querySelector(".upload-dropzone");
+                    if (uploadZone) {
+                      uploadZone.scrollIntoView({ behavior: "smooth" });
+                    }
+                  }
+                } else {
+                  navigate(f.path);
+                }
+              }}
             >
               <div className="feature-icon"><f.icon size={24} /></div>
               <div className="feature-title">{f.title}</div>
               <div className="feature-desc">{f.desc}</div>
             </div>
           ))}
+
         </motion.div>
       )}
 
