@@ -198,6 +198,11 @@ function ChatInterface() {
     setMessages((prev) => [...prev, userMessage])
     setInput("")
     setError("")
+    
+    // Maintain input focus so the cursor continues to blink in the chat box
+    setTimeout(() => {
+      textareaRef.current?.focus();
+    }, 10);
 
     // Excel export only in document mode
     if (documentData && isExcelRequest(trimmed)) {

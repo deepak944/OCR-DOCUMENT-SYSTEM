@@ -23,6 +23,14 @@ def convert_extracted_data_to_cad(document_data, output_path):
         doc.layers.add('TABLE_TEXT', color=3)
 
         pages = document_data.get("pages", [])
+        images = document_data.get("images", [])
+        
+        # Group embedded images by page number to align vector diagrams
+        images_by_page = {}
+        for img in (images or []):
+            if isinstance(img, dict):
+                p_num = img.get("page_number", 1)
+                images_by_page.setdefault(p_num, []).append(img)
         
         # Standard page dimensions (A4 point scale: ~595 width, ~842 height)
         page_width = 595.0
@@ -149,6 +157,75 @@ def convert_extracted_data_to_cad(document_data, output_path):
                         cell_mtext.dxf.char_height = max(4.0, min(10.0, row_height * 0.5))
                         cell_mtext.dxf.insert = (c_x0 + 2.0, c_y1 - 2.0)
                         cell_mtext.dxf.width = max(5.0, col_width - 4.0)
+
+            # 4. Draw Vectorized Diagrams from Embedded Page Images
+            page_images = images_by_page.get(page_number, [])
+            for img in page_images:
+                data_url = img.get("data_url")
+                if not data_url or not isinstance(data_url, str) or "," not in data_url:
+                    continue
+
+                try:
+                    import base64
+                    import cv2
+                    import numpy as np
+
+                    # Decode base64 image data
+                    header, encoded = data_url.split(",", 1)
+                    img_data = base64.b64decode(encoded)
+
+                    # Convert to OpenCV image
+                    nparr = np.frombuffer(img_data, np.uint8)
+                    cv_img = cv2.imdecode(nparr, cv2.IMREAD_GRAYSCALE)
+                    if cv_img is None:
+                        continue
+
+                    # Binarize the image to isolate vector lines and diagrams
+                    # Invert so lines are white (255) and background is black (0)
+                    _, thresh = cv2.threshold(cv_img, 220, 255, cv2.THRESH_BINARY_INV)
+
+                    # Trace vector contours (lines, curves, and shapes)
+                    contours, _ = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+
+                    # Add a dedicated AutoCAD layer for vector diagram elements
+                    doc.layers.add('DIAGRAMS', color=2) # Color code 2 = Yellow
+
+                    # Calculate scale factor to center and fit diagram inside the page
+                    img_w = float(img.get("width", 300))
+                    img_h = float(img.get("height", 300))
+
+                    max_w = page_width * 0.95
+                    max_h = page_height * 0.95
+                    scale = min(max_w / img_w, max_h / img_h, 1.0)
+
+                    fit_w = img_w * scale
+                    fit_h = img_h * scale
+
+                    # Centered positions inside the A4 CAD page
+                    dx = x_offset + (page_width - fit_w) / 2.0
+                    dy = (page_height - fit_h) / 2.0
+
+                    for contour in contours:
+                        # Simplify the contour to make the resulting DXF lightweight and highly performant
+                        epsilon = 0.005 * cv2.arcLength(contour, True)
+                        approx = cv2.approxPolyDP(contour, epsilon, True)
+
+                        if len(approx) < 2:
+                            continue
+
+                        # Convert coordinates: flip Y-axis (image origin is top-left, DXF is bottom-left)
+                        points = []
+                        for pt in approx:
+                            px, py = pt[0]
+                            cx = dx + (px * scale)
+                            cy = dy + (fit_h - (py * scale))
+                            points.append((cx, cy))
+
+                        # Draw the contour line in AutoCAD
+                        msp.add_lwpolyline(points, format='xy', close=True, dxfattribs={'layer': 'DIAGRAMS'})
+
+                except Exception as ex:
+                    logging.warning(f"Failed to vectorize diagram image: {ex}")
 
         # Save drawing to output path
         doc.saveas(output_path)
