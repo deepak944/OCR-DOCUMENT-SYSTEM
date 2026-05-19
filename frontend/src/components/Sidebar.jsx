@@ -19,6 +19,37 @@ function getDocumentData(metadata) {
   return null
 }
 
+const popupVariants = {
+  hidden: { opacity: 0, scale: 0.95, y: 15 },
+  visible: {
+    opacity: 1,
+    scale: 1,
+    y: 0,
+    transition: {
+      type: "spring",
+      stiffness: 300,
+      damping: 24,
+      staggerChildren: 0.05,
+      delayChildren: 0.05
+    }
+  },
+  exit: {
+    opacity: 0,
+    scale: 0.95,
+    y: 10,
+    transition: { duration: 0.15 }
+  }
+}
+
+const itemVariants = {
+  hidden: { opacity: 0, x: -10 },
+  visible: { 
+    opacity: 1, 
+    x: 0, 
+    transition: { type: "spring", stiffness: 300, damping: 24 } 
+  }
+}
+
 function Sidebar({ isCollapsed, onToggleCollapse }) {
   const { user, logout, isAuthenticated } = useAuth()
   const { theme, toggleTheme } = useTheme()
@@ -333,66 +364,93 @@ function Sidebar({ isCollapsed, onToggleCollapse }) {
                 <motion.div
                   ref={profileRef}
                   className="sidebar-profile-popup glass-card"
-                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                  transition={{ duration: 0.2 }}
+                  variants={popupVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
                 >
                   <button className="sidebar-profile-close" onClick={() => setShowProfile(false)}>
                     <X size={14} />
                   </button>
 
-                  <div className="sidebar-profile-header">
+                  <motion.div className="sidebar-profile-header" variants={itemVariants}>
                     <div className="sidebar-profile-avatar">
                       {(user?.displayName || user?.name || "U").charAt(0).toUpperCase()}
                     </div>
                     <h4 className="sidebar-profile-name">{user?.displayName || user?.name || "User"}</h4>
                     <p className="sidebar-profile-email">{user?.email || ""}</p>
-                  </div>
+                    <div style={{ marginTop: "8px", fontSize: "10px", color: "var(--color-success, #10b981)", fontWeight: "600", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+                      <span style={{ display: "inline-block", width: "6px", height: "6px", borderRadius: "50%", background: "#10b981" }}></span>
+                      Connected
+                    </div>
+                  </motion.div>
 
                   <div className="sidebar-profile-divider" />
 
-                  <div className="sidebar-profile-info">
+                  <motion.div className="sidebar-profile-info" variants={itemVariants}>
                     <div className="sidebar-profile-row">
-                      <span>Version</span>
-                      <span className="badge badge-primary">V1</span>
+                      <span>🚀 Version</span>
+                      <span className="badge badge-primary">V1.0</span>
                     </div>
-                    <div className="sidebar-profile-row">
-                      <span>Made by</span>
+                    <div className="sidebar-profile-row" style={{ marginTop: "4px" }}>
+                      <span>👨‍💻 Creator</span>
                       <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>Deepak</span>
                     </div>
-                  </div>
+                  </motion.div>
 
                   <div className="sidebar-profile-divider" />
 
                   <div className="sidebar-profile-links">
-                    <a href="https://www.linkedin.com/in/deepak-u-servegar" target="_blank" rel="noopener noreferrer" className="sidebar-profile-link">
-                      <Linkedin size={16} /> LinkedIn
+                    <motion.a 
+                      variants={itemVariants}
+                      whileHover={{ x: 4 }}
+                      href="https://www.linkedin.com/in/deepak-u-servegar" 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="sidebar-profile-link"
+                    >
+                      <span>💼 LinkedIn 🔗</span>
                       <ExternalLink size={12} style={{ marginLeft: "auto" }} />
-                    </a>
-                    <a href="https://github.com/deepak944" target="_blank" rel="noopener noreferrer" className="sidebar-profile-link">
-                      <Github size={16} /> GitHub
+                    </motion.a>
+                    
+                    <motion.a 
+                      variants={itemVariants}
+                      whileHover={{ x: 4 }}
+                      href="https://github.com/deepak944" 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="sidebar-profile-link"
+                    >
+                      <span>📁 GitHub ⚡</span>
                       <ExternalLink size={12} style={{ marginLeft: "auto" }} />
-                    </a>
-                    <button
+                    </motion.a>
+                    
+                    <motion.button
+                      variants={itemVariants}
+                      whileHover={{ x: 4 }}
                       onClick={(e) => {
                         e.preventDefault()
                         setIsSupportOpen(true)
                         setShowProfile(false)
                       }}
                       className="sidebar-profile-link"
-                      style={{ background: "none", border: "none", width: "100%", textAlign: "left", cursor: "pointer" }}
+                      style={{ background: "none", border: "none", width: "100%", textAlign: "left", cursor: "pointer", display: "flex", alignItems: "center" }}
                     >
-                      <Phone size={16} /> Support Chat
+                      <span>💬 Live Support Chat 📞</span>
                       <ExternalLink size={12} style={{ marginLeft: "auto" }} />
-                    </button>
+                    </motion.button>
                   </div>
 
                   <div className="sidebar-profile-divider" />
 
-                  <button className="sidebar-profile-logout" onClick={handleLogout}>
-                    <LogOut size={16} /> Sign Out
-                  </button>
+                  <motion.button 
+                    variants={itemVariants}
+                    className="sidebar-profile-logout" 
+                    onClick={handleLogout}
+                    whileTap={{ scale: 0.97 }}
+                  >
+                    <LogOut size={16} /> 🚪 Sign Out 👋
+                  </motion.button>
                 </motion.div>
               )}
             </AnimatePresence>
