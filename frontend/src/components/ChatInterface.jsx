@@ -142,6 +142,17 @@ function ChatInterface() {
     }
   }, [input])
 
+  // Automatically refocus and blink the cursor in the input field when AI response finishes
+  useEffect(() => {
+    if (!isSending) {
+      // Small timeout ensures the DOM has updated and disabled attribute is fully removed
+      const timer = setTimeout(() => {
+        textareaRef.current?.focus()
+      }, 50)
+      return () => clearTimeout(timer)
+    }
+  }, [isSending])
+
   const appendAssistantMessage = (content) => {
     setMessages((prev) => [
       ...prev,
