@@ -7,7 +7,8 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism"
 import {
   Send, Trash2, Copy, Check, RotateCcw, Sparkles, FileText,
-  Loader2, Mic, MicOff, StopCircle, Table, Globe, Mail, ChevronDown
+  Loader2, Mic, MicOff, StopCircle, Table, Globe, Mail, ChevronDown,
+  MessageSquare, BrainCircuit
 } from "lucide-react"
 import {
   chatWithDocument,
@@ -63,50 +64,70 @@ function ChatInterface() {
   const [isListening, setIsListening] = useState(false)
   const recognitionRef = useRef(null)
 
+  // Determine chat mode: "document" when navigated with document data, "general" otherwise
+  const hasDocumentFromNav = Boolean(location.state?.documentData)
+  const chatMode = documentData ? "document" : "general"
+
   const currentLangCode = localStorage.getItem("texttrack-lang") || "en";
   const currentLangName = getLanguageName(currentLangCode);
 
-  const SUGGESTED_PROMPTS = [
-    { icon: Sparkles, label: "Summarize", prompt: `Summarize this document in ${currentLangName}.` },
-    { icon: Table, label: "Extract Tables", prompt: "Extract all tables from this document." },
-    { icon: Globe, label: "Translate", prompt: `Translate the key content of this document to ${currentLangName}.` },
-    { icon: Mail, label: "Find Emails", prompt: "Find all email addresses mentioned in this document." },
+  // Different prompts for document mode vs general mode
+  const DOCUMENT_PROMPTS = [
+    { icon: Sparkles, label: "Summarize", prompt: `Summarize the key points of this document in ${currentLangName}.` },
+    { icon: Table, label: "Extract Tables", prompt: "Extract and format all tables found in this document." },
+    { icon: Globe, label: "Translate", prompt: `Translate the main content of this document to ${currentLangName}.` },
+    { icon: Mail, label: "Key Entities", prompt: "List all names, dates, emails, and important entities found in this document." },
   ];
 
+  const GENERAL_PROMPTS = [
+    { icon: BrainCircuit, label: "Explain OCR", prompt: "What is OCR and how does it work?" },
+    { icon: Sparkles, label: "Write Code", prompt: "Write a Python script to extract text from a PDF file." },
+    { icon: Globe, label: "Translate", prompt: `How do you say 'document processing' in ${currentLangName}?` },
+    { icon: MessageSquare, label: "Help Me", prompt: "What can you help me with?" },
+  ];
+
+  const SUGGESTED_PROMPTS = chatMode === "document" ? DOCUMENT_PROMPTS : GENERAL_PROMPTS;
+
   useEffect(() => {
-    const activeDocument = location.state?.documentData
-      ? {
-          documentData: location.state.documentData,
-          documentName: location.state.documentName || "OCR Document",
-          restoredMessages: Array.isArray(location.state.restoredMessages)
-            ? location.state.restoredMessages
-            : [],
-        }
-      : getActiveDocument()
+    // ONLY load document if explicitly passed via navigation state (Talk with AI button)
+    // Do NOT fall back to localStorage — sidebar AI Chat should be clean/general
+    if (location.state?.documentData) {
+      const docData = location.state.documentData
+      const docName = location.state.documentName || "OCR Document"
+      const restoredMsgs = Array.isArray(location.state.restoredMessages)
+        ? location.state.restoredMessages
+        : []
 
-    if (!activeDocument?.documentData) {
+      setDocumentData(docData)
+      setDocumentName(docName)
+      saveActiveDocument(docName, docData)
+
+      setMessages([
+        {
+          id: `assistant-ready-${Date.now()}`,
+          role: "assistant",
+          content: `I've loaded **${docName}**. Ask me anything about it — I can summarize, extract data, translate, and more.\n\n> 📄 This chat is scoped to this document only. I'll answer from the document content.`,
+          timestamp: Date.now(),
+        },
+        ...restoredMsgs,
+      ])
+      setError("")
+      setInput("")
+    } else {
+      // General mode — no document loaded, clean chat
       setDocumentData(null)
-      return
+      setDocumentName("OCR Document")
+      setMessages([
+        {
+          id: `assistant-welcome-${Date.now()}`,
+          role: "assistant",
+          content: `Hi! I'm **TextTrack AI** — your intelligent assistant. 🤖\n\nYou can ask me anything — general knowledge, coding help, explanations, and more.\n\n> 💡 **Tip:** To chat about a specific document, upload a PDF first and click **"Talk with AI"** from the OCR result.`,
+          timestamp: Date.now(),
+        },
+      ])
+      setError("")
+      setInput("")
     }
-
-    setDocumentData(activeDocument.documentData)
-    setDocumentName(activeDocument.documentName || "OCR Document")
-    saveActiveDocument(activeDocument.documentName, activeDocument.documentData)
-
-    const restoredMessages = Array.isArray(activeDocument.restoredMessages)
-      ? activeDocument.restoredMessages
-      : []
-    setMessages([
-      {
-        id: `assistant-ready-${Date.now()}`,
-        role: "assistant",
-        content: `I've loaded **${activeDocument.documentName || "your document"}**. Ask me anything about it — I can summarize, extract data, translate, and more.`,
-        timestamp: Date.now(),
-      },
-      ...restoredMessages,
-    ])
-    setError("")
-    setInput("")
   }, [location.state])
 
   useEffect(() => {
@@ -163,7 +184,10 @@ function ChatInterface() {
 
   const sendMessage = async (messageText) => {
     const trimmed = messageText.trim()
-    if (!trimmed || !documentData || isSending || isExportingExcel) return
+    if (!trimmed || isSending || isExportingExcel) return
+
+    // In document mode, require documentData
+    // In general mode, allow sending without documentData
 
     const userMessage = {
       id: `user-${Date.now()}`,
@@ -175,7 +199,8 @@ function ChatInterface() {
     setInput("")
     setError("")
 
-    if (isExcelRequest(trimmed)) {
+    // Excel export only in document mode
+    if (documentData && isExcelRequest(trimmed)) {
       await handleExcelExport(true)
       return
     }
@@ -189,11 +214,12 @@ function ChatInterface() {
       // Get language from localStorage
       const language = localStorage.getItem("texttrack-lang") || "en"
 
+      // In general mode, send empty/null documentData — backend already supports this
       const response = await chatWithDocument(
         trimmed,
-        documentData,
+        documentData || {},
         conversationHistory,
-        documentName,
+        documentData ? documentName : "General Chat",
         language
       )
       appendAssistantMessage(response.data.response)
@@ -228,14 +254,25 @@ function ChatInterface() {
   }
 
   const handleClearChat = () => {
-    setMessages([
-      {
-        id: `assistant-cleared-${Date.now()}`,
-        role: "assistant",
-        content: "Chat cleared. Ask me anything about your document.",
-        timestamp: Date.now(),
-      },
-    ])
+    if (chatMode === "document") {
+      setMessages([
+        {
+          id: `assistant-cleared-${Date.now()}`,
+          role: "assistant",
+          content: "Chat cleared. Ask me anything about your document.",
+          timestamp: Date.now(),
+        },
+      ])
+    } else {
+      setMessages([
+        {
+          id: `assistant-cleared-${Date.now()}`,
+          role: "assistant",
+          content: "Chat cleared. Ask me anything!",
+          timestamp: Date.now(),
+        },
+      ])
+    }
   }
 
   // Voice input
@@ -268,7 +305,7 @@ function ChatInterface() {
   }
 
   const isBusy = isSending || isExportingExcel
-  const showSuggestions = messages.length <= 1 && documentData
+  const showSuggestions = messages.length <= 1
 
   const markdownComponents = {
     code({ node, inline, className, children, ...props }) {
@@ -302,35 +339,24 @@ function ChatInterface() {
     },
   }
 
-  if (!documentData) {
-    return (
-      <div className="chat-empty-state">
-        <motion.div
-          className="chat-empty-content"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-        >
-          <div className="chat-empty-icon">
-            <FileText size={48} />
-          </div>
-          <h2>No document loaded</h2>
-          <p>Upload a PDF and open "Talk with AI" from the OCR result to start chatting.</p>
-          <Link to="/" className="btn btn-primary btn-lg">
-            Go to Dashboard
-          </Link>
-        </motion.div>
-      </div>
-    )
-  }
-
   return (
     <div className="chat-container">
       {/* Header */}
       <div className="chat-header">
         <div className="chat-header-left">
-          <FileText size={18} />
-          <span className="chat-header-doc-name truncate">{documentName}</span>
+          {chatMode === "document" ? (
+            <>
+              <FileText size={18} />
+              <span className="chat-header-doc-name truncate">{documentName}</span>
+              <span className="chat-mode-badge chat-mode-badge--doc">Document Mode</span>
+            </>
+          ) : (
+            <>
+              <BrainCircuit size={18} />
+              <span className="chat-header-doc-name">TextTrack AI Assistant</span>
+              <span className="chat-mode-badge chat-mode-badge--general">General Mode</span>
+            </>
+          )}
         </div>
         <button className="btn btn-ghost btn-sm" onClick={handleClearChat}>
           <Trash2 size={14} />
@@ -473,7 +499,7 @@ function ChatInterface() {
           <textarea
             ref={textareaRef}
             className="chat-textarea"
-            placeholder="Ask anything about this document..."
+            placeholder={chatMode === "document" ? "Ask anything about this document..." : "Ask me anything..."}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}

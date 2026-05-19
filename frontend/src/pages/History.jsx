@@ -64,6 +64,9 @@ function groupActivitiesByFile(activities) {
 
   activities.forEach((activity) => {
     const fileKey = activity.fileName || `activity-${activity.id}`
+    if (fileKey === "General Chat" || activity.fileName === "General Chat") {
+      return
+    }
     const current = groups.get(fileKey) || []
     current.push(activity)
     groups.set(fileKey, current)

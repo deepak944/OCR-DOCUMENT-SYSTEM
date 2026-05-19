@@ -10,6 +10,7 @@ import {
 import { useAuth } from "../context/AuthContext"
 import { useTheme } from "../contexts/ThemeContext"
 import { getActivities, getActivityDetails, deleteActivity, getResultFromCache } from "../services/api"
+import SupportChat from "./SupportChat"
 
 function getDocumentData(metadata) {
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null
@@ -31,6 +32,7 @@ function Sidebar({ isCollapsed, onToggleCollapse }) {
   const [renameValue, setRenameValue] = useState("")
   const [showProfile, setShowProfile] = useState(false)
   const [openingDocId, setOpeningDocId] = useState(null)
+  const [isSupportOpen, setIsSupportOpen] = useState(false)
   const menuRef = useRef(null)
   const profileRef = useRef(null)
 
@@ -61,6 +63,9 @@ function Sidebar({ isCollapsed, onToggleCollapse }) {
       const seen = new Set()
       for (const act of activities) {
         const key = act.fileName || `doc-${act.id}`
+        if (key === "General Chat" || act.fileName === "General Chat") {
+          continue;
+        }
         if (!seen.has(key)) {
           seen.add(key)
           uniqueDocs.push({
@@ -361,18 +366,26 @@ function Sidebar({ isCollapsed, onToggleCollapse }) {
                   <div className="sidebar-profile-divider" />
 
                   <div className="sidebar-profile-links">
-                    <a href="https://linkedin.com/in/deepak" target="_blank" rel="noopener noreferrer" className="sidebar-profile-link">
+                    <a href="https://www.linkedin.com/in/deepak-u-servegar" target="_blank" rel="noopener noreferrer" className="sidebar-profile-link">
                       <Linkedin size={16} /> LinkedIn
                       <ExternalLink size={12} style={{ marginLeft: "auto" }} />
                     </a>
-                    <a href="https://github.com/deepak" target="_blank" rel="noopener noreferrer" className="sidebar-profile-link">
+                    <a href="https://github.com/deepak944" target="_blank" rel="noopener noreferrer" className="sidebar-profile-link">
                       <Github size={16} /> GitHub
                       <ExternalLink size={12} style={{ marginLeft: "auto" }} />
                     </a>
-                    <a href="tel:+919353046405" className="sidebar-profile-link">
-                      <Phone size={16} /> Contact
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault()
+                        setIsSupportOpen(true)
+                        setShowProfile(false)
+                      }}
+                      className="sidebar-profile-link"
+                      style={{ background: "none", border: "none", width: "100%", textAlign: "left", cursor: "pointer" }}
+                    >
+                      <Phone size={16} /> Support Chat
                       <ExternalLink size={12} style={{ marginLeft: "auto" }} />
-                    </a>
+                    </button>
                   </div>
 
                   <div className="sidebar-profile-divider" />
@@ -386,6 +399,9 @@ function Sidebar({ isCollapsed, onToggleCollapse }) {
           </div>
         )}
       </div>
+
+      {/* Real-time Support Chat overlay */}
+      <SupportChat isOpen={isSupportOpen} onClose={() => setIsSupportOpen(false)} />
     </motion.aside>
   )
 }

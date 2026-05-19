@@ -90,10 +90,11 @@ function UploadZone({ setResult, setProcessedFile, setIsLoading, onUploadComplet
           const pollStatus = async () => {
             try {
               const statusRes = await getActivityDetails(activityId);
-              const activity = statusRes.data;
+              const payload = statusRes.data;
+              const activity = payload?.activity;
 
-              if (activity.status === "success") {
-                const ocrData = activity.metadata?.documentData;
+              if (activity && activity.status === "success") {
+                const ocrData = payload.documentData || activity.metadata?.documentData;
                 setUploadProgress(100);
                 setUploadStatus("success");
                 
@@ -105,7 +106,7 @@ function UploadZone({ setResult, setProcessedFile, setIsLoading, onUploadComplet
                 setIsUploading(false);
                 if (setIsLoading) setIsLoading(false);
                 return true;
-              } else if (activity.status === "failed") {
+              } else if (activity && activity.status === "failed") {
                 setError(activity.error || "Processing failed.");
                 setUploadStatus("error");
                 setIsUploading(false);

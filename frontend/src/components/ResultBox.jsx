@@ -355,7 +355,12 @@ function ResultBox({
           <button onClick={handleTalkWithAI} className="primaryBtn">
             Talk with AI
           </button>
-          <button onClick={handleCadDownload} disabled={isDownloadingCad} className="cadBtn">
+          <button
+            onClick={handleCadDownload}
+            disabled={isDownloadingCad}
+            className="cadBtn"
+            title="Download AutoCAD DXF (R2010) — includes page borders, text blocks, and table grids organized in named layers"
+          >
             {isDownloadingCad ? "Preparing CAD..." : "Download CAD"}
           </button>
           <button onClick={handleExcelDownload} disabled={isDownloadingExcel}>
@@ -365,7 +370,6 @@ function ResultBox({
             {isDownloading ? "Preparing..." : "Download Word"}
           </button>
         </div>
-
       </div>
 
       {hasRestoredTimeline && (

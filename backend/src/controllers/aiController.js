@@ -13,11 +13,10 @@ exports.chatWithDocument = async (req, res) => {
       });
     }
 
-    if (!documentData || typeof documentData !== "object" || Array.isArray(documentData)) {
-      return res.status(400).json({
-        error: "documentData must be a JSON object",
-      });
-    }
+    // Allow empty or missing documentData for general/outside queries
+    const resolvedDocumentData = (documentData && typeof documentData === "object" && !Array.isArray(documentData))
+      ? documentData
+      : {};
 
     const normalizedHistory = Array.isArray(history)
       ? history
@@ -30,7 +29,7 @@ exports.chatWithDocument = async (req, res) => {
 
     const response = await generateDocumentAssistantResponse(
       message.trim(),
-      documentData,
+      resolvedDocumentData,
       normalizedHistory,
       documentName,
       language

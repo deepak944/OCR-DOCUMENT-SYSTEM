@@ -26,7 +26,7 @@ OCR_REPLACEMENT_RATIO = 1.2
 # Large-PDF limits — above these, skip slow operations entirely.
 # A 200-page PDF with good native text should never need OCR or Camelot.
 MAX_PAGES_FOR_CAMELOT = 50        # Camelot is very slow on large PDFs
-MAX_PAGES_FOR_EMBEDDED_IMAGES = 30  # base64-encoding every image is expensive
+MAX_PAGES_FOR_EMBEDDED_IMAGES = 150  # base64-encoding every image is expensive
 MAX_PAGES_FOR_OCR = 100           # Don't OCR more than this many pages total
 MAX_FILE_BYTES_FOR_CAMELOT = 30 * 1024 * 1024   # 30 MB
 
@@ -212,9 +212,9 @@ def process_document(pdf_path, cancel_check=None):
             logging.warning("Table extraction failed for %s: %s", pdf_path, exc)
             tables = []
 
-        # Embedded image extraction — skip for large PDFs (too slow, too much memory)
+        # Embedded image extraction — skip only if page count exceeds MAX_PAGES_FOR_EMBEDDED_IMAGES
         try:
-            if large_pdf or page_count > MAX_PAGES_FOR_EMBEDDED_IMAGES:
+            if page_count > MAX_PAGES_FOR_EMBEDDED_IMAGES:
                 images = []
             else:
                 images = extract_embedded_images(pdf_path)

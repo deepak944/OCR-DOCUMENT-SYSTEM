@@ -42,7 +42,7 @@ function Home() {
   const features = [
     { icon: Upload, title: "Upload PDF", desc: "Drag & drop to extract text", path: "/upload", action: "upload" },
     { icon: Brain, title: "AI-Powered OCR", desc: "PaddleOCR + Gemini AI", path: "/upload", action: "upload" },
-    { icon: MessageSquare, title: "Chat with Docs", desc: "Ask anything about your PDF", path: "/ai-chat", action: "navigate" },
+    { icon: MessageSquare, title: "Chat with Docs", desc: "Ask anything about your PDF", path: "/ai-chat", action: "chat" },
     { icon: FileText, title: "PDF to AutoCAD", desc: "Premium CAD DXF vectorization", path: "/", action: "upload" },
   ]
 
@@ -141,14 +141,22 @@ function Home() {
               style={{ cursor: "pointer" }}
               onClick={() => {
                 if (f.action === "upload") {
-                  const fileInput = document.querySelector('input[type="file"]');
-                  if (fileInput) {
-                    fileInput.click();
+                  const uploadZone = document.querySelector(".upload-dropzone");
+                  if (uploadZone) {
+                    uploadZone.scrollIntoView({ behavior: "smooth" });
+                  }
+                } else if (f.action === "chat") {
+                  // Pass active document to chat if available
+                  if (activeResult) {
+                    const payload = activeResult?.data || activeResult;
+                    navigate("/ai-chat", {
+                      state: {
+                        documentName: activeDocumentName || "OCR Document",
+                        documentData: payload,
+                      },
+                    });
                   } else {
-                    const uploadZone = document.querySelector(".upload-dropzone");
-                    if (uploadZone) {
-                      uploadZone.scrollIntoView({ behavior: "smooth" });
-                    }
+                    navigate(f.path);
                   }
                 } else {
                   navigate(f.path);

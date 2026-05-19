@@ -67,13 +67,22 @@ function extractPageTexts(documentData) {
     .filter((page) => page.text);
 }
 
+const STOPWORDS = new Set([
+  "the", "a", "an", "and", "or", "but", "if", "because", "as", "what", "where", "who", "whom", "how", "why", "when", 
+  "which", "this", "that", "these", "those", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had", 
+  "do", "does", "did", "to", "for", "of", "with", "about", "against", "between", "into", "through", "during", "before", 
+  "after", "above", "below", "from", "up", "down", "in", "out", "on", "off", "over", "under", "again", "further", 
+  "then", "once", "here", "there", "all", "any", "both", "each", "few", "more", "most", "other", "some", "such", 
+  "no", "nor", "not", "only", "own", "same", "so", "than", "too", "very", "can", "will", "just", "should", "would"
+]);
+
 function extractKeywords(message) {
   return Array.from(
     new Set(
       normalizeText(message)
         .toLowerCase()
         .split(/[^a-z0-9]+/)
-        .filter((token) => token.length >= 3)
+        .filter((token) => token.length >= 3 && !STOPWORDS.has(token))
     )
   );
 }
@@ -199,11 +208,27 @@ function buildHistoryContext(history) {
 }
 
 function buildPrompt(message, documentData, history, documentName = "OCR Document", language = "en") {
-  const documentProfileContext = buildDocumentProfileContext(documentData, documentName);
-  const documentTextContext = buildDocumentTextContext(documentData, message);
-  const tablesContext = buildTablesContext(documentData);
-  const imagesContext = buildImagesContext(documentData);
-  const documentJson = JSON.stringify(documentData, null, 2).slice(0, MAX_JSON_CONTEXT_CHARS);
+  const normalizedMessage = String(message || "").trim().toLowerCase();
+  
+  // Clean greetings detection
+  const greetings = ["hi", "hello", "hey", "hola", "greetings", "good morning", "good afternoon", "good evening", "howdy", "welcome"];
+  const cleanMsg = normalizedMessage.replace(/[^a-z\s]/g, "").trim();
+  const words = cleanMsg.split(/\s+/);
+  const isGreeting = words.some(w => greetings.includes(w)) && words.length <= 4;
+
+  const pageTexts = extractPageTexts(documentData);
+  const keywords = extractKeywords(message);
+  const totalScore = pageTexts.reduce((sum, page) => sum + scorePageForQuery(page.text, keywords), 0);
+  const hasDocKeywords = /\b(document|doc|pdf|paper|file|text|ocr|page|table|image|extract|summarize|summary|context|chart|list|abstract|author|title|study|research|article|excel|dxf|cad|word|docx|xlsx|read|content|write|figures?|diagrams?|data)s?\b/i.test(message) ||
+                         /\b(what does it say|how many|tell me about|info|information)\b/i.test(message);
+
+  const isOutsideQuery = (totalScore === 0 && !hasDocKeywords && pageTexts.length > 0) || isGreeting;
+
+  const documentProfileContext = isOutsideQuery ? "{}" : buildDocumentProfileContext(documentData, documentName);
+  const documentTextContext = isOutsideQuery ? "No relevant document text matched." : buildDocumentTextContext(documentData, message);
+  const tablesContext = isOutsideQuery ? "[]" : buildTablesContext(documentData);
+  const imagesContext = isOutsideQuery ? "[]" : buildImagesContext(documentData);
+  const documentJson = isOutsideQuery ? "{}" : JSON.stringify(documentData, null, 2).slice(0, MAX_JSON_CONTEXT_CHARS);
   const historyContext = buildHistoryContext(history);
 
   const languageNote = language !== "en" ? `\nNote: Please respond in ${language} language if possible.` : "";
@@ -247,7 +272,7 @@ ${message}
 Rules:
 - Treat the current uploaded document as the primary source of truth.
 - If the user asks about the uploaded document, answer from the document only.
-- If the user asks something clearly outside the uploaded document, answer helpfully using general knowledge.
+- If the user asks something clearly outside the uploaded document, answer helpfully and correctly using your own general knowledge.
 - Never pretend a general-knowledge answer came from the document.
 - Do not guess or invent missing document details.
 - If a document-related answer is not supported by the document, say: "I could not find that in the document."
@@ -261,7 +286,7 @@ Rules:
 - Do not use labels like "Source:", "Answer:", or "Evidence:".
 - Do not break the response into rigid sections unless the user explicitly asks for a structured format.
 - If the answer comes from the document, weave the relevant page reference naturally into the reply.
-- If the answer is general knowledge, just answer normally.${languageNote}
+- If the answer is general knowledge (outside query), answer completely and cleanly using your own knowledge and do not mention or refer to the document at all.${languageNote}
 
 Examples of good style:
 - "The total amount appears to be 4,500 on page 2."
@@ -324,31 +349,77 @@ function buildFallbackImageDetails(images) {
 
 function createQuotaFallbackResponse(message, documentData, documentName = "OCR Document") {
   const normalizedMessage = normalizeText(message).toLowerCase();
+  
+  // Clean greetings detection
+  const greetings = ["hi", "hello", "hey", "hola", "greetings", "good morning", "good afternoon", "good evening", "howdy", "welcome"];
+  const cleanMsg = normalizedMessage.replace(/[^a-z\s]/g, "").trim();
+  const words = cleanMsg.split(/\s+/);
+  const isGreeting = words.some(w => greetings.includes(w)) && words.length <= 4;
+  
+  if (isGreeting) {
+    return `Hello! How can I help you today? Feel free to ask me questions about your document or anything else!`;
+  }
+
   const { pageCount, tableCount, imageCount, images, tables } = getDocumentStats(documentData);
   const excerpt = buildFallbackTextExcerpt(documentData, message);
 
-  if (/\b(image|images|photo|picture|figure|diagram)\b/.test(normalizedMessage)) {
-    return `For ${documentName}, I found ${imageCount} extracted image${imageCount === 1 ? "" : "s"}.\n${buildFallbackImageDetails(images)}`;
+  // If general chat and the model call hit a rate limit, return a clean message
+  if (pageCount === 0 || documentName === "General Chat") {
+    return `I am currently operating in a lightweight offline fallback mode due to high AI API traffic. I'd be happy to answer your general knowledge questions normally once the limit resets in a few seconds!`;
   }
 
-  if (/\b(table|tables|excel|spreadsheet)\b/.test(normalizedMessage)) {
-    const tablePreview = tables.length ? trimForFallback(JSON.stringify(tables.slice(0, 3), null, 2)) : "No extracted tables are saved for this PDF.";
-    return `For ${documentName}, I found ${tableCount} extracted table${tableCount === 1 ? "" : "s"}.\n${tablePreview}`;
+  // Score query against document to detect outside questions
+  const keywords = extractKeywords(message);
+  const pageTexts = extractPageTexts(documentData);
+  const totalScore = pageTexts.reduce((sum, page) => sum + scorePageForQuery(page.text, keywords), 0);
+  
+  const hasDocKeywords = /\b(document|doc|pdf|paper|file|text|ocr|page|table|image|extract|summarize|summary|context|chart|list|abstract|author|title|study|research|article|excel|dxf|cad|word|docx|xlsx|read|content|write|figures?|diagrams?|data)s?\b/i.test(message) ||
+                         /\b(what does it say|how many|tell me about|info|information)\b/i.test(message);
+
+  // 1. Basic Metadata: Page Count
+  if (/\b(page|pages|how many pages|page count|number of pages)\b/.test(normalizedMessage)) {
+    return `The document **"${documentName}"** has **${pageCount} page${pageCount === 1 ? "" : "s"}** in total.`;
   }
 
+  // 2. Basic Metadata: Tables Count
+  if (/\b(table|tables|how many tables|table count|number of tables)\b/.test(normalizedMessage)) {
+    return `The document **"${documentName}"** contains **${tableCount} extracted table${tableCount === 1 ? "" : "s"}**.`;
+  }
+
+  // 3. Basic Metadata: Images Count
+  if (/\b(image|images|photo|photos|picture|pictures|figure|figures|diagram|diagrams|how many images)\b/.test(normalizedMessage)) {
+    return `The document **"${documentName}"** has **${imageCount} extracted image${imageCount === 1 ? "" : "s"}** saved.`;
+  }
+
+  // 4. Basic Metadata: Document Name
+  if (/\b(document name|file name|what is the name|title of the document)\b/.test(normalizedMessage)) {
+    return `The name of the uploaded document is **"${documentName}"**.`;
+  }
+
+  // 5. General Document Summary Request
   if (/\b(summary|summarize|about|details?|key|information|info)\b/.test(normalizedMessage)) {
     const textPart = excerpt
-      ? `\n\nText available from the PDF:\n${excerpt}`
-      : "\n\nNo extracted text is saved for this PDF, but table/image metadata may still be available.";
+      ? `\n\nHere is a preview of the text from Page 1:\n${excerpt}`
+      : "\n\nNo text preview is currently saved for this PDF.";
 
-    return `${documentName} has ${pageCount} page${pageCount === 1 ? "" : "s"}, ${tableCount} extracted table${tableCount === 1 ? "" : "s"}, and ${imageCount} extracted image${imageCount === 1 ? "" : "s"}.${textPart}`;
+    return `### Document Overview (${documentName})
+- **Pages:** ${pageCount}
+- **Extracted Tables:** ${tableCount}
+- **Extracted Images:** ${imageCount}
+${textPart}`;
   }
 
+  // 6. If it's a general query with zero score and no document terms, answer from offline fallback
+  if (totalScore === 0 && !hasDocKeywords && pageTexts.length > 0) {
+    return `I am currently operating in a lightweight fallback mode due to high AI API traffic. I'd be happy to answer your general knowledge questions or chat normally once the limit resets in a few seconds!`;
+  }
+
+  // 7. If it's a specific advanced question about the document, return the excerpt neatly
   if (excerpt) {
-    return `I found this relevant saved OCR text from ${documentName}:\n${excerpt}`;
+    return `I am currently in offline mode due to rate limits, but I searched the document and found this relevant section in **"${documentName}"**:\n\n${excerpt}`;
   }
 
-  return `I could not find extracted text for ${documentName}. Saved metadata shows ${pageCount} page${pageCount === 1 ? "" : "s"}, ${tableCount} table${tableCount === 1 ? "" : "s"}, and ${imageCount} image${imageCount === 1 ? "" : "s"}.`;
+  return `I could not find relevant matching text in **"${documentName}"**. Saved document statistics: ${pageCount} pages, ${tableCount} tables, and ${imageCount} images.`;
 }
 
 function isQuotaExceededError(error) {
@@ -357,13 +428,26 @@ function isQuotaExceededError(error) {
 }
 
 async function generateDocumentAssistantResponse(message, documentData, history = [], documentName, language = "en") {
-  const model = getClient().getGenerativeModel({
+  const isGeneralChat = !documentData || Object.keys(documentData).length === 0 || !documentData.pages || documentData.pages.length === 0;
+  
+  const modelOptions = {
     model: GEMINI_MODEL,
     generationConfig: {
       temperature: 0.2,
       topP: 0.8,
     },
-  });
+  };
+
+  // Enable Google Search grounding dynamically for general chats to deliver real-time, updated web information
+  if (isGeneralChat) {
+    modelOptions.tools = [
+      {
+        googleSearch: {},
+      },
+    ];
+  }
+
+  const model = getClient().getGenerativeModel(modelOptions);
   const prompt = buildPrompt(message, documentData, history, documentName, language);
   let result;
 

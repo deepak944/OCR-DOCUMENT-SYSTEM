@@ -86,9 +86,10 @@ def _mime_type_from_extension(extension):
     return f"image/{ext}" if ext else "application/octet-stream"
 
 
-def extract_embedded_images(pdf_path, max_inline_bytes=DEFAULT_MAX_INLINE_IMAGE_BYTES):
+def extract_embedded_images(pdf_path, max_inline_bytes=DEFAULT_MAX_INLINE_IMAGE_BYTES, max_previews=15):
     document = fitz.open(pdf_path)
     extracted_images = []
+    preview_count = 0
 
     try:
         for page_index in range(len(document)):
@@ -122,6 +123,7 @@ def extract_embedded_images(pdf_path, max_inline_bytes=DEFAULT_MAX_INLINE_IMAGE_
                     continue
 
                 image_size = len(raw_bytes)
+                should_preview = image_size <= max_inline_bytes and preview_count < max_previews
 
                 image_entry = {
                     "page_number": page_index + 1,
@@ -132,13 +134,14 @@ def extract_embedded_images(pdf_path, max_inline_bytes=DEFAULT_MAX_INLINE_IMAGE_
                     "width": width,
                     "height": height,
                     "size_bytes": image_size,
-                    "inline_preview_available": image_size <= max_inline_bytes,
+                    "inline_preview_available": should_preview,
                     "data_url": None
                 }
 
-                if image_size <= max_inline_bytes:
+                if should_preview:
                     encoded_image = base64.b64encode(raw_bytes).decode("ascii")
                     image_entry["data_url"] = f"data:{mime_type};base64,{encoded_image}"
+                    preview_count += 1
 
                 extracted_images.append(image_entry)
     finally:
